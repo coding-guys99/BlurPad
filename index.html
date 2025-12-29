@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BlurPad Web</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="dot"></div>
+        <div>
+          <div class="title" data-i18n="app_title">BlurPad</div>
+          <div class="sub" data-i18n="app_subtitle">同圖雙層：背景 Blur、前景置中</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <select id="langSelect" class="btn">
+          <option value="zh-TW">繁體中文</option>
+          <option value="en">English</option>
+        </select>
+
+        <button id="btnPickFolder" class="btn" data-i18n="batch_pick">選擇資料夾</button>
+        <button id="btnRunBatch" class="btn primary" disabled data-i18n="run_batch">批次輸出 ZIP</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <!-- 左：批次（選用） -->
+      <section class="card batch">
+        <h3>
+          <span data-i18n="batch_title">批次處理</span>
+          <span class="tag" data-i18n="optional">選用</span>
+        </h3>
+
+        <div class="desc" data-i18n="batch_desc">
+          用於一次處理整個資料夾<br/>
+          一般情況請使用右側「即時預覽」
+        </div>
+
+        <div id="dropFolder" class="drop">
+          <div class="dropText" data-i18n="batch_drop">拖曳資料夾到這裡</div>
+          <div class="dropHint" data-i18n="batch_hint">或使用右上角按鈕</div>
+        </div>
+
+        <div class="row">
+          <div class="label" data-i18n="batch_folder">資料夾</div>
+          <div id="folderPath" class="mono muted">（尚未選擇）</div>
+        </div>
+
+        <div class="row">
+          <div class="label" data-i18n="batch_count">數量</div>
+          <div id="batchCount" class="mono muted">0</div>
+        </div>
+
+        <div class="row">
+          <div class="label" data-i18n="batch_output">輸出</div>
+          <div class="mono muted"><span data-i18n="batch_output_desc">打包成 ZIP 下載</span></div>
+        </div>
+
+        <!-- 隱藏的資料夾選擇器 -->
+        <input id="folderInput" type="file" webkitdirectory multiple hidden />
+      </section>
+
+      <!-- 中：參數 -->
+      <section class="card">
+        <h3 data-i18n="params_title">參數</h3>
+
+        <div class="paramActions">
+          <button id="btnReset" class="btn" data-i18n="reset">重置</button>
+        </div>
+
+        <div class="form">
+          <div class="field">
+            <label data-i18n="size">尺寸</label>
+            <div class="inline">
+              <input id="w" type="number" value="1920" min="1" />
+              <span class="muted">×</span>
+              <input id="h" type="number" value="1080" min="1" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Blur</label>
+            <input id="blur" type="range" min="0" max="80" value="35" />
+            <div class="muted mono"><span id="blurVal">35</span></div>
+          </div>
+
+          <div class="field">
+            <label data-i18n="bg_dim">背景亮度（壓暗）</label>
+            <input id="dim" type="range" min="0.2" max="1" step="0.05" value="0.8" />
+            <div class="muted mono"><span id="dimVal">0.80</span></div>
+          </div>
+
+          <div class="field">
+            <label data-i18n="bg_sat">背景飽和度（降飽和）</label>
+            <input id="sat" type="range" min="0" max="1.5" step="0.05" value="0.75" />
+            <div class="muted mono"><span id="satVal">0.75</span></div>
+          </div>
+
+          <div class="field">
+            <label data-i18n="output">輸出</label>
+            <div class="inline">
+              <select id="format">
+                <option value="jpg" selected>JPG</option>
+                <option value="png">PNG</option>
+              </select>
+              <input id="quality" type="number" value="90" min="1" max="100" />
+              <span class="muted" data-i18n="quality">品質（JPG）</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右：即時預覽 + 輸出這張 + 進度 -->
+      <section class="card">
+        <h3 data-i18n="preview_title">即時預覽</h3>
+
+        <div id="previewDrop" class="viewport" title="Drop an image here">
+          <img id="previewImg" alt="preview" />
+          <div id="previewEmpty" class="viewportEmpty" data-i18n="preview_empty">
+            拖一張圖片到這裡預覽（也可以點一下選檔）
+          </div>
+        </div>
+
+        <div class="previewActions">
+          <button id="btnExportOne" class="btn primary" disabled data-i18n="export_one">輸出這張</button>
+          <div class="mono muted" id="previewHint" data-i18n="preview_hint">拖一張圖片到上方預覽框</div>
+        </div>
+
+        <hr class="sep" />
+
+        <h3 data-i18n="progress_title">進度</h3>
+
+        <div class="progress">
+          <div class="bar"><div id="barFill" class="fill" style="width:0%"></div></div>
+          <div class="stats mono">
+            <div><span data-i18n="current">目前</span>：<span id="current" class="muted">—</span></div>
+            <div><span data-i18n="done">完成</span>：<span id="done">0</span>/<span id="total">0</span></div>
+            <div><span data-i18n="success">成功</span>：<span id="ok">0</span>　<span data-i18n="fail">失敗</span>：<span id="fail">0</span></div>
+          </div>
+        </div>
+
+        <div id="log" class="log mono"></div>
+
+        <!-- 隱藏的單張選檔：點預覽框會打開 -->
+        <input id="imageInput" type="file" accept="image/*" hidden />
+      </section>
+    </main>
+  </div>
+
+  <!-- JSZip 用於批次 ZIP -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <script src="./i18n.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
