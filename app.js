@@ -235,6 +235,10 @@ async function refreshPreview() {
     const url = URL.createObjectURL(blob);
     previewImg.onload = () => URL.revokeObjectURL(url);
     previewImg.src = url;
+    
+    // === sync preview container aspect ratio ===
+    const ratio = o.height / o.width;
+    previewDrop.style.aspectRatio = `${o.width} / ${o.height}`;
 
     previewImg.style.display = "block";
     previewEmpty.style.display = "none";
