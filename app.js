@@ -7,7 +7,9 @@ const DEFAULT_OPTS = {
   bgDim: 0.8,
   bgSat: 0.75,
   format: "jpg",
-  quality: 90
+  quality: 90,
+  mirror: false,
+  preset: "free",
 };
 
 // UI refs
@@ -26,6 +28,10 @@ const sat = $("sat"), satVal = $("satVal");
 const format = $("format");
 const quality = $("quality");
 const btnReset = $("btnReset");
+
+// === NEW: size preset + mirror (optional; if missing, app still works) ===
+const sizePreset = $("sizePreset"); // <select id="sizePreset">
+const mirror = $("mirror");         // <input id="mirror" type="checkbox">
 
 const previewDrop = $("previewDrop");
 const previewImg = $("previewImg");
@@ -54,15 +60,34 @@ let lastRenderedBlob = null;   // Blob for "export this"
 let lastRenderedName = null;
 let bgFile = null; // 可選背景圖（File）
 
+// === Presets (you can adjust numbers anytime) ===
+const PRESETS = {
+  free: null,
+  fb_1_91_1: { w: 1200, h: 630 },   // FB link share
+  ig_1_1:    { w: 1080, h: 1080 },  // IG square
+  ig_9_16:   { w: 1080, h: 1920 },  // Reels/Shorts
+  ig_4_5:    { w: 1080, h: 1350 },  // IG portrait feed (common)
+  ar_16_9:   { w: 1920, h: 1080 },
+  ar_4_3:    { w: 1600, h: 1200 },
+  ar_3_4:    { w: 1200, h: 1600 },
+};
+
+function clampInt(n, min, max) {
+  const v = Math.round(Number(n) || 0);
+  return Math.max(min, Math.min(max, v));
+}
+
 function opts() {
   return {
-    width: Number(w.value) || DEFAULT_OPTS.width,
-    height: Number(h.value) || DEFAULT_OPTS.height,
+    width: clampInt(w.value, 64, 8000) || DEFAULT_OPTS.width,
+    height: clampInt(h.value, 64, 8000) || DEFAULT_OPTS.height,
     blur: Number(blur.value) || DEFAULT_OPTS.blur,
     bgDim: Number(dim.value) || DEFAULT_OPTS.bgDim,
     bgSat: Number(sat.value) || DEFAULT_OPTS.bgSat,
     format: String(format.value || DEFAULT_OPTS.format),
-    quality: Math.max(1, Math.min(100, Number(quality.value) || DEFAULT_OPTS.quality))
+    quality: Math.max(1, Math.min(100, Number(quality.value) || DEFAULT_OPTS.quality)),
+    mirror: !!(mirror && mirror.checked),
+    preset: (sizePreset && sizePreset.value) ? String(sizePreset.value) : DEFAULT_OPTS.preset,
   };
 }
 
@@ -74,6 +99,9 @@ function applyDefaults() {
   sat.value = DEFAULT_OPTS.bgSat;
   format.value = DEFAULT_OPTS.format;
   quality.value = DEFAULT_OPTS.quality;
+
+  if (sizePreset) sizePreset.value = DEFAULT_OPTS.preset;
+  if (mirror) mirror.checked = DEFAULT_OPTS.mirror;
 
   blurVal.textContent = String(blur.value);
   dimVal.textContent = Number(dim.value).toFixed(2);
@@ -117,8 +145,17 @@ function sanitizeName(s) {
 }
 
 async function fileToBitmap(file) {
-  // createImageBitmap is fast in modern browsers
   return await createImageBitmap(file);
+}
+
+function withMirror(ctx, enabled, tw, drawFn) {
+  ctx.save();
+  if (enabled) {
+    ctx.translate(tw, 0);
+    ctx.scale(-1, 1);
+  }
+  drawFn();
+  ctx.restore();
 }
 
 // === Core render: background cover + blur/dim/sat; foreground contain centered ===
@@ -130,16 +167,17 @@ function drawBlurPad(ctx, fgImg, bgImg, tw, th, o) {
   const bx = (tw - bw) / 2;
   const by = (th - bh) / 2;
 
-  ctx.save();
-  ctx.clearRect(0, 0, tw, th);
-
   const blurPx = Math.max(0, Number(o.blur) || 0);
   const bright = Math.max(0.1, Number(o.bgDim) || 1);
   const satv = Math.max(0, Number(o.bgSat) || 1);
 
+  ctx.clearRect(0, 0, tw, th);
   ctx.filter = `blur(${blurPx}px) brightness(${bright}) saturate(${satv})`;
-  ctx.drawImage(bgImg, bx, by, bw, bh);
-  ctx.restore();
+
+  // mirror affects background too (more intuitive)
+  withMirror(ctx, !!o.mirror, tw, () => {
+    ctx.drawImage(bgImg, bx, by, bw, bh);
+  });
 
   // ===== Foreground (use fgImg) =====
   const fiw = fgImg.width, fih = fgImg.height;
@@ -148,12 +186,11 @@ function drawBlurPad(ctx, fgImg, bgImg, tw, th, o) {
   const fx = (tw - fw) / 2;
   const fy = (th - fh) / 2;
 
-  ctx.save();
   ctx.filter = "none";
-  ctx.drawImage(fgImg, fx, fy, fw, fh);
-  ctx.restore();
+  withMirror(ctx, !!o.mirror, tw, () => {
+    ctx.drawImage(fgImg, fx, fy, fw, fh);
+  });
 }
-
 
 async function renderToBlob(file, o, targetW, targetH, previewMode = false) {
   const fgImg = await fileToBitmap(file);
@@ -167,13 +204,14 @@ async function renderToBlob(file, o, targetW, targetH, previewMode = false) {
   drawBlurPad(ctx, fgImg, bgImg, targetW, targetH, o);
 
   const fmt = (o.format === "png") ? "image/png" : "image/jpeg";
-  const q = (fmt === "image/jpeg") ? (Math.max(0.1, Math.min(1, (o.quality || 90) / 100))) : undefined;
+  const q = (fmt === "image/jpeg")
+    ? (Math.max(0.1, Math.min(1, (o.quality || 90) / 100)))
+    : undefined;
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, fmt, q));
   if (!blob) throw new Error("toBlob failed");
   return blob;
 }
-
 
 // === Preview ===
 async function refreshPreview() {
@@ -186,9 +224,10 @@ async function refreshPreview() {
 
   try {
     const o = opts();
-    // Preview at 960x540 (fast)
+
+    // Preview width fixed; height follows output aspect ratio
     const pw = 960;
-    const ph = Math.round(pw * (o.height / o.width));
+    const ph = Math.max(1, Math.round(pw * (o.height / o.width)));
 
     const blob = await renderToBlob(previewFile, o, pw, ph, true);
     lastRenderedBlob = blob;
@@ -247,6 +286,32 @@ function setBatch(files, folderLabel = "") {
   btnRunBatch.disabled = batchFiles.length === 0;
 }
 
+// === NEW: Preset wiring ===
+function applyPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return; // free or unknown
+  w.value = p.w;
+  h.value = p.h;
+  blurVal.textContent = String(blur.value);
+  dimVal.textContent = Number(dim.value).toFixed(2);
+  satVal.textContent = Number(sat.value).toFixed(2);
+}
+
+if (sizePreset) {
+  sizePreset.addEventListener("change", async () => {
+    const key = sizePreset.value;
+    applyPreset(key);
+    await refreshPreview();
+  });
+}
+
+// Manual change W/H -> set preset to free
+[w, h].forEach(el => {
+  el.addEventListener("input", () => {
+    if (sizePreset) sizePreset.value = "free";
+  });
+});
+
 // === Events ===
 blur.addEventListener("input", () => blurVal.textContent = blur.value);
 dim.addEventListener("input", () => dimVal.textContent = Number(dim.value).toFixed(2));
@@ -256,6 +321,11 @@ sat.addEventListener("input", () => satVal.textContent = Number(sat.value).toFix
   el.addEventListener("input", refreshPreview);
   el.addEventListener("change", refreshPreview);
 });
+
+// Mirror triggers preview
+if (mirror) {
+  mirror.addEventListener("change", refreshPreview);
+}
 
 btnReset.addEventListener("click", async () => {
   applyDefaults();
@@ -288,7 +358,6 @@ imageInput.addEventListener("change", async () => {
 btnExportOne.addEventListener("click", async () => {
   if (!previewFile) return;
 
-  // Re-render at full resolution for output
   const o = opts();
   setProgress({ total: 1, done: 0, ok: 0, fail: 0, current: previewFile.name });
   logLine(`${window.i18n?.t?.("exporting") || "Exporting..."} ${previewFile.name}`);
@@ -312,7 +381,6 @@ btnExportOne.addEventListener("click", async () => {
 btnPickFolder.addEventListener("click", () => folderInput.click());
 folderInput.addEventListener("change", () => {
   const files = Array.from(folderInput.files || []);
-  // Extract folder label from webkitRelativePath
   const first = files[0];
   const folderLabel = first?.webkitRelativePath ? first.webkitRelativePath.split("/")[0] : "（已選擇）";
   setBatch(files, folderLabel);
@@ -326,7 +394,7 @@ bgInput.addEventListener("change", async () => {
   bgFile = f;
   bgName.textContent = f.name;
   btnClearBg.disabled = false;
-  await refreshPreview(); // 立刻更新預覽
+  await refreshPreview();
 });
 
 btnClearBg.addEventListener("click", async () => {
@@ -337,11 +405,8 @@ btnClearBg.addEventListener("click", async () => {
   await refreshPreview();
 });
 
-
 // Batch: drag folder (best effort)
 wireDrop(dropFolder, (f, dt) => {
-  // Some browsers put folder items into dataTransfer.items; simplest: show hint
-  // We still accept dropped files list if available.
   const files = Array.from(dt?.files || []);
   if (files.length) {
     const first = files[0];
@@ -380,7 +445,6 @@ btnRunBatch.addEventListener("click", async () => {
     } finally {
       doneN++;
       setProgress({ total: batchFiles.length, done: doneN, ok: okN, fail: failN, current: file.name });
-      // Let UI breathe
       await new Promise(r => setTimeout(r, 0));
     }
   }
