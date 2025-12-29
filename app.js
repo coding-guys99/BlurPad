@@ -225,33 +225,23 @@ async function refreshPreview() {
   try {
     const o = opts();
 
-    // Preview width fixed; height follows output aspect ratio
+    // ⭐ 關鍵：讓預覽框比例跟輸出一致
+    previewDrop.style.aspectRatio = `${o.width} / ${o.height}`;
+
     const pw = 960;
     const ph = Math.max(1, Math.round(pw * (o.height / o.width)));
 
     const blob = await renderToBlob(previewFile, o, pw, ph, true);
-    lastRenderedBlob = blob;
 
     const url = URL.createObjectURL(blob);
     previewImg.onload = () => URL.revokeObjectURL(url);
     previewImg.src = url;
-    
-    // === sync preview container aspect ratio ===
-    const ratio = o.height / o.width;
-    previewDrop.style.aspectRatio = `${o.width} / ${o.height}`;
 
     previewImg.style.display = "block";
     previewEmpty.style.display = "none";
     btnExportOne.disabled = false;
-
-    const base = sanitizeName(getBaseName(previewFile));
-    lastRenderedName = `${base}_${o.width}x${o.height}.${o.format}`;
-    previewHint.textContent = previewFile.name;
   } catch (e) {
-    previewImg.style.display = "none";
-    previewEmpty.style.display = "block";
-    previewEmpty.textContent = `Preview failed: ${String(e?.message || e)}`;
-    btnExportOne.disabled = true;
+    previewEmpty.textContent = `Preview failed: ${e.message}`;
   }
 }
 
