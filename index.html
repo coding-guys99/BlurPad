@@ -75,6 +75,17 @@
 
         <div class="form">
           <div class="field">
+            <label>背景圖（可選）</label>
+            <div class="inline" style="gap:10px; flex-wrap:wrap;">
+              <button id="btnPickBg" class="btn">選擇背景圖</button>
+              <button id="btnClearBg" class="btn" disabled>清除</button>
+              <span id="bgName" class="muted mono">（使用原圖）</span>
+            </div>
+            <input id="bgInput" type="file" accept="image/*" hidden />
+          </div>
+
+
+          <div class="field">
             <label data-i18n="size">尺寸</label>
             <div class="inline">
               <input id="w" type="number" value="1920" min="1" />
@@ -151,6 +162,44 @@
       </section>
     </main>
   </div>
+
+  <!-- Fixed Ad (collapsible) -->
+<div id="adDock" class="ad-dock" data-state="open" aria-label="Advertisement">
+  <div class="ad-panel" role="region" aria-label="Ad panel">
+    <div class="ad-badge">AD</div>
+
+    <!-- 這裡之後替換成廣告碼/iframe/ins -->
+    <div class="ad-slot">
+  <ins class="adsbygoogle"
+    style="display:block; width:100%; height:100%;"
+    data-ad-client="ca-pub-XXXXXXXXXXXX"
+    data-ad-slot="YYYYYYYYYY"
+    data-ad-format="auto"
+    data-full-width-responsive="true">
+  </ins>
+</div>
+
+
+
+    <button id="adCollapse" class="ad-btn" aria-label="Collapse ad">✕</button>
+  </div>
+
+  <button id="adPill" class="ad-pill" aria-label="Expand ad">
+    AD
+  </button>
+</div>
+
+<footer class="footer" style="margin-top:40px;text-align:center;font-size:12px;color:#999">
+  <a href="/about.html">About</a> ·
+  <a href="/privacy.html">Privacy Policy</a> ·
+  <a href="/terms.html">Terms</a>
+</footer>
+
+
+
+  <script>
+  (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
 
   <!-- JSZip 用於批次 ZIP -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
