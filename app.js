@@ -144,8 +144,25 @@ function sanitizeName(s) {
   return String(s).replace(/[\\/:*?"<>|]/g, "_");
 }
 
-async function fileToBitmap(file) {
-  return await createImageBitmap(file);
+async function fileToImage(file) {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.decoding = "async";
+  img.src = url;
+
+  // Safari/iOS: decode 比 onload 更穩（但要兼容）
+  if (img.decode) {
+    await img.decode().catch(() => {});
+  } else {
+    await new Promise((res, rej) => {
+      img.onload = () => res();
+      img.onerror = (e) => rej(e);
+    });
+  }
+
+  // ⚠️ iOS 有時候太早 revoke 會畫不出來，所以先掛著，render 完再釋放
+  img.__objectURL = url;
+  return img;
 }
 
 function withMirror(ctx, enabled, tw, drawFn) {
@@ -193,8 +210,8 @@ function drawBlurPad(ctx, fgImg, bgImg, tw, th, o) {
 }
 
 async function renderToBlob(file, o, targetW, targetH, previewMode = false) {
-  const fgImg = await fileToBitmap(file);
-  const bgImg = bgFile ? await fileToBitmap(bgFile) : fgImg;
+  const fgImg = await fileToImage(file);
+  const bgImg = bgFile ? await fileToImage(bgFile) : fgImg;
 
   const canvas = document.createElement("canvas");
   canvas.width = targetW;
@@ -210,6 +227,11 @@ async function renderToBlob(file, o, targetW, targetH, previewMode = false) {
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, fmt, q));
   if (!blob) throw new Error("toBlob failed");
+
+  // ✅ render 完再釋放 URL（iOS 需要）
+  try { if (fgImg.__objectURL) URL.revokeObjectURL(fgImg.__objectURL); } catch {}
+  try { if (bgImg !== fgImg && bgImg.__objectURL) URL.revokeObjectURL(bgImg.__objectURL); } catch {}
+
   return blob;
 }
 
