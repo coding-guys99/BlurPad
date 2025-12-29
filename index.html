@@ -88,13 +88,36 @@
 
 
           <div class="field">
-            <label data-i18n="size">尺寸</label>
-            <div class="inline">
-              <input id="w" type="number" value="1920" min="1" />
-              <span class="muted">×</span>
-              <input id="h" type="number" value="1080" min="1" />
-            </div>
-          </div>
+  <label data-i18n="size">尺寸</label>
+
+  <!-- Preset -->
+  <div class="inline" style="gap:10px; flex-wrap:wrap;">
+    <select id="sizePreset" style="min-width:220px;">
+      <option value="free" selected>自訂</option>
+      <option value="fb_1_91_1">FB 橫幅 1.91:1（1200×630）</option>
+
+      <option value="ig_1_1">IG 1:1（1080×1080）</option>
+      <option value="ig_4_5">IG 4:5（1080×1350）</option>
+      <option value="ig_9_16">IG / Reels 9:16（1080×1920）</option>
+
+      <option value="ar_16_9">16:9（1920×1080）</option>
+      <option value="ar_4_3">4:3（1600×1200）</option>
+      <option value="ar_3_4">3:4（1200×1600）</option>
+    </select>
+
+    <label class="inline muted" style="gap:8px; user-select:none;">
+      <input id="mirror" type="checkbox" />
+      Mirror（左右鏡像）
+    </label>
+  </div>
+
+  <!-- Manual size -->
+  <div class="inline" style="margin-top:10px;">
+    <input id="w" type="number" value="1920" min="1" />
+    <span class="muted">×</span>
+    <input id="h" type="number" value="1080" min="1" />
+  </div>
+</div>
 
           <div class="field">
             <label>Blur</label>
