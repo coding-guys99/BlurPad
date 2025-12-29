@@ -175,38 +175,155 @@ function withMirror(ctx, enabled, tw, drawFn) {
   ctx.restore();
 }
 
+// ===== Canvas filter support detection (iOS Safari may ignore ctx.filter) =====
+let __CANVAS_FILTER_OK = null;
+
+function detectCanvasFilterWorks() {
+  if (__CANVAS_FILTER_OK !== null) return __CANVAS_FILTER_OK;
+
+  try {
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 64;
+    const x = c.getContext("2d", { willReadFrequently: true });
+    if (!x) return (__CANVAS_FILTER_OK = false);
+
+    // draw a hard edge
+    x.fillStyle = "#000";
+    x.fillRect(0, 0, 64, 64);
+    x.fillStyle = "#fff";
+    x.fillRect(32, 0, 32, 64);
+
+    const before = x.getImageData(31, 32, 3, 1).data; // pixels around edge
+    x.clearRect(0, 0, 64, 64);
+
+    // apply blur filter and redraw
+    x.filter = "blur(6px)";
+    x.fillStyle = "#000";
+    x.fillRect(0, 0, 64, 64);
+    x.fillStyle = "#fff";
+    x.fillRect(32, 0, 32, 64);
+
+    const after = x.getImageData(31, 32, 3, 1).data;
+
+    // if filter works, edge should soften => pixel values change
+    const diff = Math.abs(after[0] - before[0]) + Math.abs(after[4] - before[4]) + Math.abs(after[8] - before[8]);
+    __CANVAS_FILTER_OK = diff > 5;
+    return __CANVAS_FILTER_OK;
+  } catch {
+    return (__CANVAS_FILTER_OK = false);
+  }
+}
+
+function applyBrightnessSaturationToCanvas(canvas, bright, satv) {
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+
+  const b = Math.max(0, Number(bright) || 1);
+  const s = Math.max(0, Number(satv) || 1);
+
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i], g = d[i + 1], bl = d[i + 2];
+
+    // saturation: lerp to gray
+    const gray = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+    r = gray + (r - gray) * s;
+    g = gray + (g - gray) * s;
+    bl = gray + (bl - gray) * s;
+
+    // brightness
+    r *= b; g *= b; bl *= b;
+
+    // clamp
+    d[i] = r < 0 ? 0 : r > 255 ? 255 : r;
+    d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
+    d[i + 2] = bl < 0 ? 0 : bl > 255 ? 255 : bl;
+  }
+
+  ctx.putImageData(img, 0, 0);
+}
+
+// "Fake blur" fallback: multi-sample shifted draws (works everywhere)
+function drawBlurredFallback(ctx, srcCanvas, tw, th, blurPx, mirrorOn) {
+  const samples = 16; // more = smoother but slower
+  const radius = Math.max(0, Math.min(blurPx, 80)) / 2; // tune
+  if (radius <= 0) {
+    withMirror(ctx, mirrorOn, tw, () => ctx.drawImage(srcCanvas, 0, 0));
+    return;
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 1 / samples;
+
+  // sample around a circle
+  for (let i = 0; i < samples; i++) {
+    const ang = (i / samples) * Math.PI * 2;
+    const dx = Math.cos(ang) * radius;
+    const dy = Math.sin(ang) * radius;
+    withMirror(ctx, mirrorOn, tw, () => {
+      ctx.drawImage(srcCanvas, dx, dy);
+    });
+  }
+
+  ctx.restore();
+}
+
 // === Core render: background cover + blur/dim/sat; foreground contain centered ===
 function drawBlurPad(ctx, fgImg, bgImg, tw, th, o) {
-  // ===== Background (use bgImg) =====
+  const blurPx = Math.max(0, Number(o.blur) || 0);
+  const bright = Math.max(0.1, Number(o.bgDim) || 1);
+  const satv = Math.max(0, Number(o.bgSat) || 1);
+  const mirrorOn = !!o.mirror;
+
+  // ---- draw bg cover into an offscreen canvas first ----
+  const bgCanvas = document.createElement("canvas");
+  bgCanvas.width = tw;
+  bgCanvas.height = th;
+  const bctx = bgCanvas.getContext("2d", { willReadFrequently: true });
+
   const biw = bgImg.width, bih = bgImg.height;
   const scaleCover = Math.max(tw / biw, th / bih);
   const bw = biw * scaleCover, bh = bih * scaleCover;
   const bx = (tw - bw) / 2;
   const by = (th - bh) / 2;
 
-  const blurPx = Math.max(0, Number(o.blur) || 0);
-  const bright = Math.max(0.1, Number(o.bgDim) || 1);
-  const satv = Math.max(0, Number(o.bgSat) || 1);
-
-  ctx.clearRect(0, 0, tw, th);
-  ctx.filter = `blur(${blurPx}px) brightness(${bright}) saturate(${satv})`;
-
-  // mirror affects background too (more intuitive)
-  withMirror(ctx, !!o.mirror, tw, () => {
-    ctx.drawImage(bgImg, bx, by, bw, bh);
+  bctx.clearRect(0, 0, tw, th);
+  withMirror(bctx, mirrorOn, tw, () => {
+    bctx.drawImage(bgImg, bx, by, bw, bh);
   });
 
-  // ===== Foreground (use fgImg) =====
+  // Apply dim/sat via pixels (works on iOS)
+  applyBrightnessSaturationToCanvas(bgCanvas, bright, satv);
+
+  // ---- now draw final canvas ----
+  ctx.clearRect(0, 0, tw, th);
+
+  const filterOK = detectCanvasFilterWorks();
+
+  if (filterOK) {
+    // Desktop/Android/modern Safari where filter works: keep fast path
+    ctx.save();
+    ctx.filter = `blur(${blurPx}px)`;
+    withMirror(ctx, mirrorOn, tw, () => ctx.drawImage(bgCanvas, 0, 0));
+    ctx.restore();
+  } else {
+    // iOS fallback: fake blur
+    drawBlurredFallback(ctx, bgCanvas, tw, th, blurPx, false /* already mirrored in bgCanvas */);
+  }
+
+  // Foreground contain (no filter needed)
   const fiw = fgImg.width, fih = fgImg.height;
   const scaleContain = Math.min(tw / fiw, th / fih);
   const fw = fiw * scaleContain, fh = fih * scaleContain;
   const fx = (tw - fw) / 2;
   const fy = (th - fh) / 2;
 
+  ctx.save();
   ctx.filter = "none";
-  withMirror(ctx, !!o.mirror, tw, () => {
+  withMirror(ctx, mirrorOn, tw, () => {
     ctx.drawImage(fgImg, fx, fy, fw, fh);
   });
+  ctx.restore();
 }
 
 async function renderToBlob(file, o, targetW, targetH, previewMode = false) {
