@@ -195,3 +195,151 @@ select#format{
   background-position: right 12px center;
   background-size: 14px 14px;
 }
+
+/* ===== Fixed Ad (collapsible) ===== */
+.ad-dock{
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  width: min(100%, 1200px);
+  z-index: 9999;
+  pointer-events: none; /* 讓 dock 本體不擋操作，裡面再開啟 */
+}
+
+.ad-dock *{ pointer-events: auto; }
+
+/* 展開狀態：底部面板 */
+.ad-panel{
+  height: 110px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  position: relative;
+}
+
+/* 右上角關閉按鈕 */
+.ad-btn{
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+  cursor: pointer;
+}
+.ad-btn:hover{ background: rgba(255,255,255,.10); }
+
+/* 左上角 AD 標章 */
+.ad-badge{
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* 內容區（放廣告碼） */
+.ad-slot{
+  width: 100%;
+  height: 100%;
+  padding: 14px 56px; /* 留右上角按鈕空間 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ad-placeholder{
+  font-size: 12px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  opacity: .9;
+}
+
+/* 收合後的小膠囊（右下角） */
+.ad-pill{
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  cursor: pointer;
+  display: none;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+.ad-pill:hover{ background: rgba(0,0,0,.68); }
+
+/* 狀態切換 */
+.ad-dock[data-state="open"] .ad-panel{ display:flex; }
+.ad-dock[data-state="open"] .ad-pill{ display:none; }
+
+.ad-dock[data-state="collapsed"] .ad-panel{ display:none; }
+.ad-dock[data-state="collapsed"] .ad-pill{ display:inline-flex; align-items:center; justify-content:center; }
+
+/* 手機：建議直接不顯示（或只顯示 ad-pill） */
+@media (max-width: 980px){
+  .ad-dock{ display:none; }
+}
+
+.ad-link{
+  display:flex;
+  width:100%;
+  height:100%;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
+  color:var(--text);
+}
+
+.ad-content{
+  text-align:center;
+  line-height:1.4;
+}
+
+.ad-content strong{
+  display:block;
+  font-size:14px;
+}
+
+.ad-content span{
+  font-size:12px;
+  color:var(--muted);
+}
+
+.ad-panel{
+  pointer-events: auto;
+}
+
+.ad-badge,
+.ad-btn{
+  pointer-events: auto;
+}
+
+.adsbygoogle{
+  pointer-events: auto;
+}
+
+.footer a{
+  color: white;
+  padding: 20px;
+  text-decoration: none;
+}
