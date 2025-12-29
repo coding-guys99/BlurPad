@@ -42,11 +42,17 @@ const ok = $("ok");
 const fail = $("fail");
 const log = $("log");
 
+const btnPickBg = $("btnPickBg");
+const btnClearBg = $("btnClearBg");
+const bgInput = $("bgInput");
+const bgName = $("bgName");
+
 // State
 let previewFile = null;        // File object
 let batchFiles = [];           // File list from folder input
 let lastRenderedBlob = null;   // Blob for "export this"
 let lastRenderedName = null;
+let bgFile = null; // 可選背景圖（File）
 
 function opts() {
   return {
@@ -116,58 +122,58 @@ async function fileToBitmap(file) {
 }
 
 // === Core render: background cover + blur/dim/sat; foreground contain centered ===
-function drawBlurPad(ctx, img, tw, th, o) {
-  // Background cover rect
-  const iw = img.width, ih = img.height;
-  const scaleCover = Math.max(tw / iw, th / ih);
-  const bw = iw * scaleCover, bh = ih * scaleCover;
+function drawBlurPad(ctx, fgImg, bgImg, tw, th, o) {
+  // ===== Background (use bgImg) =====
+  const biw = bgImg.width, bih = bgImg.height;
+  const scaleCover = Math.max(tw / biw, th / bih);
+  const bw = biw * scaleCover, bh = bih * scaleCover;
   const bx = (tw - bw) / 2;
   const by = (th - bh) / 2;
 
   ctx.save();
   ctx.clearRect(0, 0, tw, th);
 
-  // Background filters
   const blurPx = Math.max(0, Number(o.blur) || 0);
   const bright = Math.max(0.1, Number(o.bgDim) || 1);
   const satv = Math.max(0, Number(o.bgSat) || 1);
 
   ctx.filter = `blur(${blurPx}px) brightness(${bright}) saturate(${satv})`;
-  ctx.drawImage(img, bx, by, bw, bh);
+  ctx.drawImage(bgImg, bx, by, bw, bh);
   ctx.restore();
 
-  // Foreground contain rect
-  const scaleContain = Math.min(tw / iw, th / ih);
-  const fw = iw * scaleContain, fh = ih * scaleContain;
+  // ===== Foreground (use fgImg) =====
+  const fiw = fgImg.width, fih = fgImg.height;
+  const scaleContain = Math.min(tw / fiw, th / fih);
+  const fw = fiw * scaleContain, fh = fih * scaleContain;
   const fx = (tw - fw) / 2;
   const fy = (th - fh) / 2;
 
   ctx.save();
   ctx.filter = "none";
-  ctx.drawImage(img, fx, fy, fw, fh);
+  ctx.drawImage(fgImg, fx, fy, fw, fh);
   ctx.restore();
 }
 
+
 async function renderToBlob(file, o, targetW, targetH, previewMode = false) {
-  const img = await fileToBitmap(file);
+  const fgImg = await fileToBitmap(file);
+  const bgImg = bgFile ? await fileToBitmap(bgFile) : fgImg;
 
   const canvas = document.createElement("canvas");
   canvas.width = targetW;
   canvas.height = targetH;
   const ctx = canvas.getContext("2d", { alpha: false });
 
-  drawBlurPad(ctx, img, targetW, targetH, o);
+  drawBlurPad(ctx, fgImg, bgImg, targetW, targetH, o);
 
-  // output
   const fmt = (o.format === "png") ? "image/png" : "image/jpeg";
   const q = (fmt === "image/jpeg") ? (Math.max(0.1, Math.min(1, (o.quality || 90) / 100))) : undefined;
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, fmt, q));
   if (!blob) throw new Error("toBlob failed");
-
-  // For preview, reduce memory by not keeping canvas
   return blob;
 }
+
 
 // === Preview ===
 async function refreshPreview() {
@@ -312,6 +318,26 @@ folderInput.addEventListener("change", () => {
   setBatch(files, folderLabel);
 });
 
+btnPickBg.addEventListener("click", () => bgInput.click());
+
+bgInput.addEventListener("change", async () => {
+  const f = bgInput.files?.[0];
+  if (!f) return;
+  bgFile = f;
+  bgName.textContent = f.name;
+  btnClearBg.disabled = false;
+  await refreshPreview(); // 立刻更新預覽
+});
+
+btnClearBg.addEventListener("click", async () => {
+  bgFile = null;
+  bgName.textContent = "（使用原圖）";
+  btnClearBg.disabled = true;
+  bgInput.value = "";
+  await refreshPreview();
+});
+
+
 // Batch: drag folder (best effort)
 wireDrop(dropFolder, (f, dt) => {
   // Some browsers put folder items into dataTransfer.items; simplest: show hint
@@ -369,3 +395,26 @@ btnRunBatch.addEventListener("click", async () => {
 // Init defaults + UI numbers
 applyDefaults();
 setProgress({ total: 0, done: 0, ok: 0, fail: 0, current: "" });
+
+// ===== Collapsible Ad Dock =====
+(function initAdDock(){
+  const dock = document.getElementById("adDock");
+  const btnCollapse = document.getElementById("adCollapse");
+  const btnPill = document.getElementById("adPill");
+  if(!dock || !btnCollapse || !btnPill) return;
+
+  const KEY = "blurpad_ad_state"; // "open" | "collapsed"
+
+  function setState(state){
+    dock.dataset.state = state;
+    localStorage.setItem(KEY, state);
+  }
+
+  // restore
+  const saved = localStorage.getItem(KEY);
+  if(saved === "collapsed") setState("collapsed");
+  else setState("open");
+
+  btnCollapse.addEventListener("click", () => setState("collapsed"));
+  btnPill.addEventListener("click", () => setState("open"));
+})();
