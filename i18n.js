@@ -2,8 +2,8 @@ const I18N = {
   "zh-TW": {
     app_title: "BlurPad",
     app_subtitle: "同圖雙層：背景 Blur、前景置中",
-    lang.zhTW:"中文",
-    lang.en:"英文",
+    lang_zhTW:"中文",
+    lang_en:"英文",
 
 
     batch_title: "批次處理",
