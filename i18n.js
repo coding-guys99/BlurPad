@@ -99,7 +99,10 @@ function t(key) {
 function applyI18n() {
   document.querySelectorAll("[data-i18n]").forEach(el => {
     const key = el.dataset.i18n;
-    if (key) el.innerText = t(key);
+    if (!key) return;
+
+    // 用 textContent，比 innerText 穩（option 也 OK）
+    el.textContent = t(key);
   });
 }
 
