@@ -10,6 +10,16 @@ const DEFAULT_OPTS = {
   quality: 90,
   mirror: false,
   preset: "free",
+
+  watermarkEnabled: false,
+  watermarkText: "BLURPAD",
+  watermarkTopLine: true,
+  watermarkBottomLine: true,
+  watermarkColor: "#ffffff",
+  watermarkOpacity: 0.8,
+  watermarkScale: 100,
+  watermarkX: 50,
+  watermarkY: 50,
 };
 
 // UI refs
@@ -29,9 +39,25 @@ const format = $("format");
 const quality = $("quality");
 const btnReset = $("btnReset");
 
-// === NEW: size preset + mirror (optional; if missing, app still works) ===
-const sizePreset = $("sizePreset"); // <select id="sizePreset">
-const mirror = $("mirror");         // <input id="mirror" type="checkbox">
+const sizePreset = $("sizePreset");
+const mirror = $("mirror");
+
+// Watermark refs
+const watermarkEnabled = $("watermarkEnabled");
+const watermarkText = $("watermarkText");
+const watermarkTopLine = $("watermarkTopLine");
+const watermarkBottomLine = $("watermarkBottomLine");
+const watermarkColor = $("watermarkColor");
+const watermarkOpacity = $("watermarkOpacity");
+const watermarkOpacityVal = $("watermarkOpacityVal");
+const watermarkScale = $("watermarkScale");
+const watermarkScaleVal = $("watermarkScaleVal");
+const watermarkX = $("watermarkX");
+const watermarkY = $("watermarkY");
+const watermarkXVal = $("watermarkXVal");
+const watermarkYVal = $("watermarkYVal");
+const watermarkControls = $("watermarkControls");
+const watermarkDragHandle = $("watermarkDragHandle");
 
 const previewDrop = $("previewDrop");
 const previewImg = $("previewImg");
@@ -54,27 +80,31 @@ const bgInput = $("bgInput");
 const bgName = $("bgName");
 
 // State
-let previewFile = null;        // File object
-let batchFiles = [];           // File list from folder input
-let lastRenderedBlob = null;   // Blob for "export this"
-let lastRenderedName = null;
-let bgFile = null; // 可選背景圖（File）
+let previewFile = null;
+let batchFiles = [];
+let bgFile = null;
+let previewRefreshTimer = null;
+let watermarkWasDragged = false;
 
-// === Presets (you can adjust numbers anytime) ===
 const PRESETS = {
   free: null,
-  fb_1_91_1: { w: 1200, h: 630 },   // FB link share
-  ig_1_1:    { w: 1080, h: 1080 },  // IG square
-  ig_9_16:   { w: 1080, h: 1920 },  // Reels/Shorts
-  ig_4_5:    { w: 1080, h: 1350 },  // IG portrait feed (common)
+  fb_1_91_1: { w: 1200, h: 630 },
+  ig_1_1:    { w: 1080, h: 1080 },
+  ig_9_16:   { w: 1080, h: 1920 },
+  ig_4_5:    { w: 1080, h: 1350 },
   ar_16_9:   { w: 1920, h: 1080 },
   ar_4_3:    { w: 1600, h: 1200 },
   ar_3_4:    { w: 1200, h: 1600 },
 };
 
-function clampInt(n, min, max) {
-  const v = Math.round(Number(n) || 0);
+function clamp(n, min, max) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return min;
   return Math.max(min, Math.min(max, v));
+}
+
+function clampInt(n, min, max) {
+  return Math.round(clamp(n, min, max));
 }
 
 function opts() {
@@ -85,10 +115,36 @@ function opts() {
     bgDim: Number(dim.value) || DEFAULT_OPTS.bgDim,
     bgSat: Number(sat.value) || DEFAULT_OPTS.bgSat,
     format: String(format.value || DEFAULT_OPTS.format),
-    quality: Math.max(1, Math.min(100, Number(quality.value) || DEFAULT_OPTS.quality)),
+    quality: clampInt(quality.value, 1, 100) || DEFAULT_OPTS.quality,
     mirror: !!(mirror && mirror.checked),
     preset: (sizePreset && sizePreset.value) ? String(sizePreset.value) : DEFAULT_OPTS.preset,
+
+    watermarkEnabled: !!(watermarkEnabled && watermarkEnabled.checked),
+    watermarkText: String(watermarkText?.value ?? DEFAULT_OPTS.watermarkText),
+    watermarkTopLine: !!(watermarkTopLine && watermarkTopLine.checked),
+    watermarkBottomLine: !!(watermarkBottomLine && watermarkBottomLine.checked),
+    watermarkColor: String(watermarkColor?.value || DEFAULT_OPTS.watermarkColor),
+    watermarkOpacity: clamp(watermarkOpacity?.value ?? DEFAULT_OPTS.watermarkOpacity, 0, 1),
+    watermarkScale: clamp(watermarkScale?.value ?? DEFAULT_OPTS.watermarkScale, 25, 250),
+    watermarkX: clamp(watermarkX?.value ?? DEFAULT_OPTS.watermarkX, 0, 100),
+    watermarkY: clamp(watermarkY?.value ?? DEFAULT_OPTS.watermarkY, 0, 100),
   };
+}
+
+function updateWatermarkReadouts() {
+  if (watermarkOpacityVal && watermarkOpacity) watermarkOpacityVal.textContent = `${Math.round(Number(watermarkOpacity.value) * 100)}%`;
+  if (watermarkScaleVal && watermarkScale) watermarkScaleVal.textContent = `${Math.round(Number(watermarkScale.value))}%`;
+  if (watermarkXVal && watermarkX) watermarkXVal.textContent = `${Math.round(Number(watermarkX.value))}%`;
+  if (watermarkYVal && watermarkY) watermarkYVal.textContent = `${Math.round(Number(watermarkY.value))}%`;
+}
+
+function updateWatermarkUiState() {
+  const enabled = !!watermarkEnabled?.checked;
+  if (watermarkControls) watermarkControls.classList.toggle("is-disabled", !enabled);
+  [watermarkText, watermarkTopLine, watermarkBottomLine, watermarkColor, watermarkOpacity, watermarkScale, watermarkX, watermarkY]
+    .filter(Boolean)
+    .forEach((el) => { el.disabled = !enabled; });
+  updateWatermarkDragHandle();
 }
 
 function applyDefaults() {
@@ -103,9 +159,21 @@ function applyDefaults() {
   if (sizePreset) sizePreset.value = DEFAULT_OPTS.preset;
   if (mirror) mirror.checked = DEFAULT_OPTS.mirror;
 
+  if (watermarkEnabled) watermarkEnabled.checked = DEFAULT_OPTS.watermarkEnabled;
+  if (watermarkText) watermarkText.value = DEFAULT_OPTS.watermarkText;
+  if (watermarkTopLine) watermarkTopLine.checked = DEFAULT_OPTS.watermarkTopLine;
+  if (watermarkBottomLine) watermarkBottomLine.checked = DEFAULT_OPTS.watermarkBottomLine;
+  if (watermarkColor) watermarkColor.value = DEFAULT_OPTS.watermarkColor;
+  if (watermarkOpacity) watermarkOpacity.value = DEFAULT_OPTS.watermarkOpacity;
+  if (watermarkScale) watermarkScale.value = DEFAULT_OPTS.watermarkScale;
+  if (watermarkX) watermarkX.value = DEFAULT_OPTS.watermarkX;
+  if (watermarkY) watermarkY.value = DEFAULT_OPTS.watermarkY;
+
   blurVal.textContent = String(blur.value);
   dimVal.textContent = Number(dim.value).toFixed(2);
   satVal.textContent = Number(sat.value).toFixed(2);
+  updateWatermarkReadouts();
+  updateWatermarkUiState();
 }
 
 function setProgress(p) {
@@ -150,7 +218,6 @@ async function fileToImage(file) {
   img.decoding = "async";
   img.src = url;
 
-  // Safari/iOS: decode 比 onload 更穩（但要兼容）
   if (img.decode) {
     await img.decode().catch(() => {});
   } else {
@@ -160,7 +227,6 @@ async function fileToImage(file) {
     });
   }
 
-  // ⚠️ iOS 有時候太早 revoke 會畫不出來，所以先掛著，render 完再釋放
   img.__objectURL = url;
   return img;
 }
@@ -175,7 +241,6 @@ function withMirror(ctx, enabled, tw, drawFn) {
   ctx.restore();
 }
 
-// ===== Canvas filter support detection (iOS Safari may ignore ctx.filter) =====
 let __CANVAS_FILTER_OK = null;
 
 function detectCanvasFilterWorks() {
@@ -187,16 +252,14 @@ function detectCanvasFilterWorks() {
     const x = c.getContext("2d", { willReadFrequently: true });
     if (!x) return (__CANVAS_FILTER_OK = false);
 
-    // draw a hard edge
     x.fillStyle = "#000";
     x.fillRect(0, 0, 64, 64);
     x.fillStyle = "#fff";
     x.fillRect(32, 0, 32, 64);
 
-    const before = x.getImageData(31, 32, 3, 1).data; // pixels around edge
+    const before = x.getImageData(31, 32, 3, 1).data;
     x.clearRect(0, 0, 64, 64);
 
-    // apply blur filter and redraw
     x.filter = "blur(6px)";
     x.fillStyle = "#000";
     x.fillRect(0, 0, 64, 64);
@@ -204,8 +267,6 @@ function detectCanvasFilterWorks() {
     x.fillRect(32, 0, 32, 64);
 
     const after = x.getImageData(31, 32, 3, 1).data;
-
-    // if filter works, edge should soften => pixel values change
     const diff = Math.abs(after[0] - before[0]) + Math.abs(after[4] - before[4]) + Math.abs(after[8] - before[8]);
     __CANVAS_FILTER_OK = diff > 5;
     return __CANVAS_FILTER_OK;
@@ -224,17 +285,11 @@ function applyBrightnessSaturationToCanvas(canvas, bright, satv) {
 
   for (let i = 0; i < d.length; i += 4) {
     let r = d[i], g = d[i + 1], bl = d[i + 2];
-
-    // saturation: lerp to gray
     const gray = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
     r = gray + (r - gray) * s;
     g = gray + (g - gray) * s;
     bl = gray + (bl - gray) * s;
-
-    // brightness
     r *= b; g *= b; bl *= b;
-
-    // clamp
     d[i] = r < 0 ? 0 : r > 255 ? 255 : r;
     d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
     d[i + 2] = bl < 0 ? 0 : bl > 255 ? 255 : bl;
@@ -243,10 +298,9 @@ function applyBrightnessSaturationToCanvas(canvas, bright, satv) {
   ctx.putImageData(img, 0, 0);
 }
 
-// "Fake blur" fallback: multi-sample shifted draws (works everywhere)
 function drawBlurredFallback(ctx, srcCanvas, tw, th, blurPx, mirrorOn) {
-  const samples = 16; // more = smoother but slower
-  const radius = Math.max(0, Math.min(blurPx, 80)) / 2; // tune
+  const samples = 16;
+  const radius = Math.max(0, Math.min(blurPx, 80)) / 2;
   if (radius <= 0) {
     withMirror(ctx, mirrorOn, tw, () => ctx.drawImage(srcCanvas, 0, 0));
     return;
@@ -254,15 +308,63 @@ function drawBlurredFallback(ctx, srcCanvas, tw, th, blurPx, mirrorOn) {
 
   ctx.save();
   ctx.globalAlpha = 1 / samples;
-
-  // sample around a circle
   for (let i = 0; i < samples; i++) {
     const ang = (i / samples) * Math.PI * 2;
     const dx = Math.cos(ang) * radius;
     const dy = Math.sin(ang) * radius;
-    withMirror(ctx, mirrorOn, tw, () => {
-      ctx.drawImage(srcCanvas, dx, dy);
-    });
+    withMirror(ctx, mirrorOn, tw, () => ctx.drawImage(srcCanvas, dx, dy));
+  }
+  ctx.restore();
+}
+
+function drawWatermarkGroup(ctx, tw, th, o) {
+  if (!o.watermarkEnabled) return;
+
+  const text = String(o.watermarkText || "").trim();
+  if (!text && !o.watermarkTopLine && !o.watermarkBottomLine) return;
+
+  // Watermark values are defined against the selected output size. Preview rendering
+  // uses a smaller canvas, so scale visual units to keep preview/output identical.
+  const outputW = Math.max(1, Number(o.width) || tw);
+  const outputH = Math.max(1, Number(o.height) || th);
+  const previewScale = Math.min(tw / outputW, th / outputH);
+  const groupScale = clamp(o.watermarkScale, 25, 250) / 100;
+  const unit = previewScale * groupScale;
+
+  const x = tw * (clamp(o.watermarkX, 0, 100) / 100);
+  const y = th * (clamp(o.watermarkY, 0, 100) / 100);
+  const fontSize = Math.max(8 * previewScale, 52 * unit);
+  const lineWidth = Math.max(1, 2 * unit);
+  const lineLength = Math.max(80 * previewScale, Math.min(outputW * 0.34, 720) * unit);
+  const lineGap = Math.max(12 * previewScale, 30 * unit);
+  const lineOffset = fontSize * 0.88 + lineGap;
+  const opacity = clamp(o.watermarkOpacity, 0, 1);
+
+  ctx.save();
+  ctx.filter = "none";
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = o.watermarkColor || "#ffffff";
+  ctx.fillStyle = o.watermarkColor || "#ffffff";
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = "round";
+  ctx.font = `600 ${fontSize}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  if (o.watermarkTopLine) {
+    ctx.beginPath();
+    ctx.moveTo(x - lineLength / 2, y - lineOffset);
+    ctx.lineTo(x + lineLength / 2, y - lineOffset);
+    ctx.stroke();
+  }
+
+  if (text) ctx.fillText(text, x, y);
+
+  if (o.watermarkBottomLine) {
+    ctx.beginPath();
+    ctx.moveTo(x - lineLength / 2, y + lineOffset);
+    ctx.lineTo(x + lineLength / 2, y + lineOffset);
+    ctx.stroke();
   }
 
   ctx.restore();
@@ -275,7 +377,6 @@ function drawBlurPad(ctx, fgImg, bgImg, tw, th, o) {
   const satv = Math.max(0, Number(o.bgSat) || 1);
   const mirrorOn = !!o.mirror;
 
-  // ---- draw bg cover into an offscreen canvas first ----
   const bgCanvas = document.createElement("canvas");
   bgCanvas.width = tw;
   bgCanvas.height = th;
@@ -288,30 +389,21 @@ function drawBlurPad(ctx, fgImg, bgImg, tw, th, o) {
   const by = (th - bh) / 2;
 
   bctx.clearRect(0, 0, tw, th);
-  withMirror(bctx, mirrorOn, tw, () => {
-    bctx.drawImage(bgImg, bx, by, bw, bh);
-  });
-
-  // Apply dim/sat via pixels (works on iOS)
+  withMirror(bctx, mirrorOn, tw, () => bctx.drawImage(bgImg, bx, by, bw, bh));
   applyBrightnessSaturationToCanvas(bgCanvas, bright, satv);
 
-  // ---- now draw final canvas ----
   ctx.clearRect(0, 0, tw, th);
-
   const filterOK = detectCanvasFilterWorks();
 
   if (filterOK) {
-    // Desktop/Android/modern Safari where filter works: keep fast path
     ctx.save();
     ctx.filter = `blur(${blurPx}px)`;
     withMirror(ctx, mirrorOn, tw, () => ctx.drawImage(bgCanvas, 0, 0));
     ctx.restore();
   } else {
-    // iOS fallback: fake blur
-    drawBlurredFallback(ctx, bgCanvas, tw, th, blurPx, false /* already mirrored in bgCanvas */);
+    drawBlurredFallback(ctx, bgCanvas, tw, th, blurPx, false);
   }
 
-  // Foreground contain (no filter needed)
   const fiw = fgImg.width, fih = fgImg.height;
   const scaleContain = Math.min(tw / fiw, th / fih);
   const fw = fiw * scaleContain, fh = fih * scaleContain;
@@ -320,10 +412,11 @@ function drawBlurPad(ctx, fgImg, bgImg, tw, th, o) {
 
   ctx.save();
   ctx.filter = "none";
-  withMirror(ctx, mirrorOn, tw, () => {
-    ctx.drawImage(fgImg, fx, fy, fw, fh);
-  });
+  withMirror(ctx, mirrorOn, tw, () => ctx.drawImage(fgImg, fx, fy, fw, fh));
   ctx.restore();
+
+  // Watermark is always the top-most overlay and is never mirrored with the image.
+  drawWatermarkGroup(ctx, tw, th, o);
 }
 
 async function renderToBlob(file, o, targetW, targetH, previewMode = false) {
@@ -338,53 +431,65 @@ async function renderToBlob(file, o, targetW, targetH, previewMode = false) {
   drawBlurPad(ctx, fgImg, bgImg, targetW, targetH, o);
 
   const fmt = (o.format === "png") ? "image/png" : "image/jpeg";
-  const q = (fmt === "image/jpeg")
-    ? (Math.max(0.1, Math.min(1, (o.quality || 90) / 100)))
-    : undefined;
-
+  const q = (fmt === "image/jpeg") ? clamp((o.quality || 90) / 100, 0.1, 1) : undefined;
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, fmt, q));
   if (!blob) throw new Error("toBlob failed");
 
-  // ✅ render 完再釋放 URL（iOS 需要）
   try { if (fgImg.__objectURL) URL.revokeObjectURL(fgImg.__objectURL); } catch {}
   try { if (bgImg !== fgImg && bgImg.__objectURL) URL.revokeObjectURL(bgImg.__objectURL); } catch {}
 
   return blob;
 }
 
-// === Preview ===
+function updateWatermarkDragHandle() {
+  if (!watermarkDragHandle || !previewDrop || !watermarkEnabled) return;
+  const show = !!previewFile && watermarkEnabled.checked;
+  watermarkDragHandle.hidden = !show;
+  if (!show) return;
+
+  const o = opts();
+  watermarkDragHandle.style.left = `${o.watermarkX}%`;
+  watermarkDragHandle.style.top = `${o.watermarkY}%`;
+  watermarkDragHandle.style.width = `${Math.min(84, Math.max(18, 34 * o.watermarkScale / 100))}%`;
+  watermarkDragHandle.style.height = `${Math.min(44, Math.max(12, 18 * o.watermarkScale / 100))}%`;
+}
+
 async function refreshPreview() {
-  if (!previewFile) return;
+  if (!previewFile) {
+    updateWatermarkDragHandle();
+    return;
+  }
 
   previewEmpty.style.display = "block";
-  previewEmpty.textContent = "Rendering preview...";
+  previewEmpty.textContent = window.i18n?.t?.("rendering_preview") || "Rendering preview...";
   previewImg.style.display = "none";
   btnExportOne.disabled = true;
 
   try {
     const o = opts();
-
-    // ⭐ 關鍵：讓預覽框比例跟輸出一致
     previewDrop.style.aspectRatio = `${o.width} / ${o.height}`;
 
     const pw = 960;
     const ph = Math.max(1, Math.round(pw * (o.height / o.width)));
-
     const blob = await renderToBlob(previewFile, o, pw, ph, true);
 
     const url = URL.createObjectURL(blob);
     previewImg.onload = () => URL.revokeObjectURL(url);
     previewImg.src = url;
-
     previewImg.style.display = "block";
     previewEmpty.style.display = "none";
     btnExportOne.disabled = false;
+    updateWatermarkDragHandle();
   } catch (e) {
     previewEmpty.textContent = `Preview failed: ${e.message}`;
   }
 }
 
-// Drop image to preview
+function schedulePreview(delay = 80) {
+  clearTimeout(previewRefreshTimer);
+  previewRefreshTimer = setTimeout(() => { refreshPreview(); }, delay);
+}
+
 function wireDrop(el, onDropFile) {
   ["dragenter", "dragover"].forEach(ev => {
     el.addEventListener(ev, (e) => {
@@ -407,7 +512,6 @@ function wireDrop(el, onDropFile) {
   });
 }
 
-// === Batch ===
 function isImageFile(file) {
   return /^image\//.test(file.type) || /\.(jpg|jpeg|png|webp)$/i.test(file.name);
 }
@@ -419,10 +523,9 @@ function setBatch(files, folderLabel = "") {
   btnRunBatch.disabled = batchFiles.length === 0;
 }
 
-// === NEW: Preset wiring ===
 function applyPreset(key) {
   const p = PRESETS[key];
-  if (!p) return; // free or unknown
+  if (!p) return;
   w.value = p.w;
   h.value = p.h;
   blurVal.textContent = String(blur.value);
@@ -432,13 +535,11 @@ function applyPreset(key) {
 
 if (sizePreset) {
   sizePreset.addEventListener("change", async () => {
-    const key = sizePreset.value;
-    applyPreset(key);
+    applyPreset(sizePreset.value);
     await refreshPreview();
   });
 }
 
-// Manual change W/H -> set preset to free
 [w, h].forEach(el => {
   el.addEventListener("input", () => {
     if (sizePreset) sizePreset.value = "free";
@@ -455,9 +556,76 @@ sat.addEventListener("input", () => satVal.textContent = Number(sat.value).toFix
   el.addEventListener("change", refreshPreview);
 });
 
-// Mirror triggers preview
-if (mirror) {
-  mirror.addEventListener("change", refreshPreview);
+if (mirror) mirror.addEventListener("change", refreshPreview);
+
+if (watermarkEnabled) {
+  watermarkEnabled.addEventListener("change", () => {
+    updateWatermarkUiState();
+    refreshPreview();
+  });
+}
+
+[watermarkText, watermarkTopLine, watermarkBottomLine, watermarkColor].filter(Boolean).forEach(el => {
+  el.addEventListener("input", () => schedulePreview());
+  el.addEventListener("change", () => refreshPreview());
+});
+
+[watermarkOpacity, watermarkScale, watermarkX, watermarkY].filter(Boolean).forEach(el => {
+  el.addEventListener("input", () => {
+    updateWatermarkReadouts();
+    updateWatermarkDragHandle();
+    schedulePreview();
+  });
+  el.addEventListener("change", () => refreshPreview());
+});
+
+// Drag the watermark group directly inside the preview.
+if (watermarkDragHandle) {
+  let dragging = false;
+
+  watermarkDragHandle.addEventListener("pointerdown", (e) => {
+    if (!watermarkEnabled?.checked) return;
+    dragging = true;
+    watermarkWasDragged = false;
+    watermarkDragHandle.classList.add("dragging");
+    watermarkDragHandle.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  watermarkDragHandle.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const rect = previewDrop.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const xPct = clamp(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
+    const yPct = clamp(((e.clientY - rect.top) / rect.height) * 100, 0, 100);
+    watermarkX.value = xPct.toFixed(1);
+    watermarkY.value = yPct.toFixed(1);
+    watermarkWasDragged = true;
+    updateWatermarkReadouts();
+    updateWatermarkDragHandle();
+    schedulePreview(110);
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  const endDrag = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    watermarkDragHandle.classList.remove("dragging");
+    try { watermarkDragHandle.releasePointerCapture?.(e.pointerId); } catch {}
+    refreshPreview();
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  watermarkDragHandle.addEventListener("pointerup", endDrag);
+  watermarkDragHandle.addEventListener("pointercancel", endDrag);
+  watermarkDragHandle.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
 }
 
 btnReset.addEventListener("click", async () => {
@@ -466,20 +634,24 @@ btnReset.addEventListener("click", async () => {
   if (previewFile) await refreshPreview();
 });
 
-// Language
 window.i18n.applyI18n();
 langSelect.value = localStorage.getItem("lang") || "zh-TW";
 langSelect.addEventListener("change", (e) => window.i18n.setLang(e.target.value));
 
-// Preview interactions
 wireDrop(previewDrop, async (f) => {
   if (!isImageFile(f)) return;
   previewFile = f;
   await refreshPreview();
 });
 
-// Click preview area to choose image (no separate button)
-previewDrop.addEventListener("click", () => imageInput.click());
+previewDrop.addEventListener("click", () => {
+  if (watermarkWasDragged) {
+    watermarkWasDragged = false;
+    return;
+  }
+  imageInput.click();
+});
+
 imageInput.addEventListener("change", async () => {
   const f = imageInput.files?.[0];
   if (!f) return;
@@ -487,7 +659,6 @@ imageInput.addEventListener("change", async () => {
   await refreshPreview();
 });
 
-// Export this
 btnExportOne.addEventListener("click", async () => {
   if (!previewFile) return;
 
@@ -499,9 +670,7 @@ btnExportOne.addEventListener("click", async () => {
     const blob = await renderToBlob(previewFile, o, o.width, o.height, false);
     const base = sanitizeName(getBaseName(previewFile));
     const filename = `${base}_${o.width}x${o.height}.${o.format}`;
-
     downloadBlob(blob, filename);
-
     setProgress({ total: 1, done: 1, ok: 1, fail: 0, current: previewFile.name });
     logLine(`${window.i18n?.t?.("export_done") || "Done."} ${filename}`);
   } catch (e) {
@@ -510,7 +679,6 @@ btnExportOne.addEventListener("click", async () => {
   }
 });
 
-// Batch: choose folder
 btnPickFolder.addEventListener("click", () => folderInput.click());
 folderInput.addEventListener("change", () => {
   const files = Array.from(folderInput.files || []);
@@ -532,13 +700,12 @@ bgInput.addEventListener("change", async () => {
 
 btnClearBg.addEventListener("click", async () => {
   bgFile = null;
-  bgName.textContent = "（使用原圖）";
+  bgName.textContent = window.i18n?.t?.("use_ori") || "（使用原圖）";
   btnClearBg.disabled = true;
   bgInput.value = "";
   await refreshPreview();
 });
 
-// Batch: drag folder (best effort)
 wireDrop(dropFolder, (f, dt) => {
   const files = Array.from(dt?.files || []);
   if (files.length) {
@@ -550,7 +717,6 @@ wireDrop(dropFolder, (f, dt) => {
   }
 });
 
-// Batch run -> ZIP
 btnRunBatch.addEventListener("click", async () => {
   if (!batchFiles.length) return;
 
@@ -564,11 +730,9 @@ btnRunBatch.addEventListener("click", async () => {
   for (const file of batchFiles) {
     try {
       setProgress({ total: batchFiles.length, done: doneN, ok: okN, fail: failN, current: file.name });
-
       const blob = await renderToBlob(file, o, o.width, o.height, false);
       const base = sanitizeName(getBaseName(file));
       const filename = `${base}_${o.width}x${o.height}.${o.format}`;
-
       zip.file(filename, blob);
       okN++;
       logLine(`✓ ${file.name}`);
@@ -589,25 +753,22 @@ btnRunBatch.addEventListener("click", async () => {
   logLine(`ZIP ready: ${zipName}`);
 });
 
-// Init defaults + UI numbers
 applyDefaults();
 setProgress({ total: 0, done: 0, ok: 0, fail: 0, current: "" });
 
-// ===== Collapsible Ad Dock =====
 (function initAdDock(){
   const dock = document.getElementById("adDock");
   const btnCollapse = document.getElementById("adCollapse");
   const btnPill = document.getElementById("adPill");
   if(!dock || !btnCollapse || !btnPill) return;
 
-  const KEY = "blurpad_ad_state"; // "open" | "collapsed"
+  const KEY = "blurpad_ad_state";
 
   function setState(state){
     dock.dataset.state = state;
     localStorage.setItem(KEY, state);
   }
 
-  // restore
   const saved = localStorage.getItem(KEY);
   if(saved === "collapsed") setState("collapsed");
   else setState("open");
