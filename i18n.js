@@ -34,7 +34,7 @@ const I18N = {
     quality: "品質（JPG）",
 
     watermark_title: "水印",
-    watermark_subtitle: "上下線 + 中間文字，可拖曳整組位置",
+    watermark_subtitle: "上下線 + 中間文字，可拖曳、縮放與旋轉整組",
     watermark_enable: "啟用",
     watermark_text: "文字",
     watermark_top_line: "上線條",
@@ -42,9 +42,10 @@ const I18N = {
     watermark_color: "顏色",
     watermark_opacity: "透明度",
     watermark_scale: "整組大小",
+    watermark_rotation: "旋轉",
     watermark_x: "水平位置",
     watermark_y: "垂直位置",
-    watermark_drag_hint: "啟用後可直接拖曳預覽中的水印整組。",
+    watermark_drag_hint: "啟用後可直接拖曳預覽中的水印整組，並可調整大小與旋轉角度。",
     watermark_drag: "拖曳水印",
 
     preview_title: "即時預覽",
@@ -100,7 +101,7 @@ const I18N = {
     quality: "Quality (JPG)",
 
     watermark_title: "Watermark",
-    watermark_subtitle: "Top/bottom lines with centered text; move as one group",
+    watermark_subtitle: "Top/bottom lines with centered text; move, scale and rotate as one group",
     watermark_enable: "Enable",
     watermark_text: "Text",
     watermark_top_line: "Top line",
@@ -108,9 +109,10 @@ const I18N = {
     watermark_color: "Color",
     watermark_opacity: "Opacity",
     watermark_scale: "Group size",
+    watermark_rotation: "Rotation",
     watermark_x: "Horizontal position",
     watermark_y: "Vertical position",
-    watermark_drag_hint: "When enabled, drag the watermark group directly in the preview.",
+    watermark_drag_hint: "When enabled, drag the watermark group in the preview and adjust its size or rotation angle.",
     watermark_drag: "Drag watermark",
 
     preview_title: "Live Preview",
@@ -172,3 +174,10 @@ function setLang(lang) {
 }
 
 window.i18n = { t, setLang, applyI18n };
+
+// Rotation is kept as a small extension so the stable core app.js does not need to be rewritten.
+(() => {
+  const script = document.createElement("script");
+  script.src = "./watermark-rotation.js?v=1.1.1";
+  document.body.appendChild(script);
+})();
