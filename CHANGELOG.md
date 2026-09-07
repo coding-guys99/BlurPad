@@ -1,5 +1,25 @@
 # BlurPad Development Log
 
+## v1.1.1 — 2026-09-07
+
+### Added
+- Added whole-group Watermark Rotation control.
+- Rotation range: -180° to +180°, default 0°.
+- Watermark text, top line, and bottom line rotate together around the watermark group's center point.
+- Rotation is applied consistently to Live Preview, single-image export, and batch ZIP export.
+- The draggable preview selection frame now rotates with the watermark group.
+- Reset restores watermark rotation to 0°.
+- Added Traditional Chinese and English labels/help text for rotation.
+
+### Implementation
+- Added `watermark-rotation.js` as a small extension to the existing stable watermark core.
+- Rotation is applied as a Canvas transform around the current watermark X/Y pivot before the existing watermark renderer runs.
+- The extension augments the existing output options with `watermarkRotation` so an export uses one consistent rotation value.
+
+### Validation
+- JavaScript syntax checked for `watermark-rotation.js` and the updated `i18n.js`.
+- Rotation uses the same normalized X/Y pivot as the existing watermark placement system.
+
 ## v1.1.0 — 2026-09-07
 
 ### Added
