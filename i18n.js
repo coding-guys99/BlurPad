@@ -3,7 +3,6 @@ const I18N = {
     app_title: "BlurPad",
     app_subtitle: "同圖雙層：背景 Blur、前景置中",
 
-    // ✅ Language labels (for <select> options)
     lang_zhTW: "繁體中文",
     lang_en: "English",
 
@@ -26,7 +25,7 @@ const I18N = {
     select_bg: "選擇背景圖",
     use_ori: "使用原圖",
     custom: "自訂",
-    horizontal: "水平",
+    horizontal: "Mirror（左右鏡像）",
     reset: "重置",
     size: "尺寸",
     bg_dim: "背景亮度（壓暗）",
@@ -34,9 +33,24 @@ const I18N = {
     output: "輸出",
     quality: "品質（JPG）",
 
+    watermark_title: "水印",
+    watermark_subtitle: "上下線 + 中間文字，可拖曳整組位置",
+    watermark_enable: "啟用",
+    watermark_text: "文字",
+    watermark_top_line: "上線條",
+    watermark_bottom_line: "下線條",
+    watermark_color: "顏色",
+    watermark_opacity: "透明度",
+    watermark_scale: "整組大小",
+    watermark_x: "水平位置",
+    watermark_y: "垂直位置",
+    watermark_drag_hint: "啟用後可直接拖曳預覽中的水印整組。",
+    watermark_drag: "拖曳水印",
+
     preview_title: "即時預覽",
     preview_empty: "拖一張圖片到這裡預覽（也可以點一下選檔）",
     preview_hint: "拖一張圖片到上方預覽框",
+    rendering_preview: "正在產生預覽…",
     export_one: "輸出這張",
     export_video: "輸出影片",
 
@@ -55,7 +69,6 @@ const I18N = {
     app_title: "BlurPad",
     app_subtitle: "Dual-layer: blurred background, centered subject",
 
-    // ✅ Language labels
     lang_zhTW: "Traditional Chinese",
     lang_en: "English",
 
@@ -78,7 +91,7 @@ const I18N = {
     select_bg: "Select Background",
     use_ori: "Use Original",
     custom: "Custom",
-    horizontal: "Horizontal",
+    horizontal: "Mirror (Horizontal)",
     reset: "Reset",
     size: "Size",
     bg_dim: "Background brightness (dim)",
@@ -86,9 +99,24 @@ const I18N = {
     output: "Output",
     quality: "Quality (JPG)",
 
+    watermark_title: "Watermark",
+    watermark_subtitle: "Top/bottom lines with centered text; move as one group",
+    watermark_enable: "Enable",
+    watermark_text: "Text",
+    watermark_top_line: "Top line",
+    watermark_bottom_line: "Bottom line",
+    watermark_color: "Color",
+    watermark_opacity: "Opacity",
+    watermark_scale: "Group size",
+    watermark_x: "Horizontal position",
+    watermark_y: "Vertical position",
+    watermark_drag_hint: "When enabled, drag the watermark group directly in the preview.",
+    watermark_drag: "Drag watermark",
+
     preview_title: "Live Preview",
     preview_empty: "Drop an image here (or click to choose)",
     preview_hint: "Drop an image into the preview area",
+    rendering_preview: "Rendering preview...",
     export_one: "Export This Image",
     export_video: "Export Video",
 
@@ -117,8 +145,6 @@ function applyI18n() {
     if (!key) return;
     el.textContent = t(key, null, el.textContent);
   });
-
-  // ✅ 特別處理 <select id="langSelect"> 的 option 文字（不管有沒有 data-i18n 都會更新）
   applyLangSelectLabels();
 }
 
@@ -127,14 +153,12 @@ function applyLangSelectLabels() {
   if (!sel) return;
 
   [...sel.options].forEach(opt => {
-    // 1) 若你有用 data-i18n（推薦），就跟著 key 翻
     const k = opt.getAttribute("data-i18n");
     if (k) {
       opt.textContent = t(k, null, opt.textContent);
       return;
     }
 
-    // 2) 若沒 data-i18n，就用 value 判斷（向下相容你原本 HTML）
     if (opt.value === "zh-TW") opt.textContent = t("lang_zhTW", null, opt.textContent);
     else if (opt.value === "en") opt.textContent = t("lang_en", null, opt.textContent);
   });
