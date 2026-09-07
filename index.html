@@ -31,7 +31,6 @@
     </header>
 
     <main class="grid">
-      <!-- 左：批次（選用） -->
       <section class="card batch">
         <h3>
           <span data-i18n="batch_title">批次處理</span>
@@ -63,12 +62,10 @@
           <div class="mono muted"><span data-i18n="batch_output_desc">打包成 ZIP 下載</span></div>
         </div>
 
-        <!-- 隱藏的資料夾選擇器 -->
         <input id="folderInput" type="file" webkitdirectory multiple hidden />
       </section>
 
-      <!-- 中：參數 -->
-      <section class="card">
+      <section class="card params-card">
         <h3 data-i18n="params_title">參數</h3>
 
         <div class="paramActions">
@@ -78,46 +75,40 @@
         <div class="form">
           <div class="field">
             <label data-i18n="bg_option">背景圖（可選）</label>
-            <div class="inline" style="gap:10px; flex-wrap:wrap;">
+            <div class="inline wrap" style="gap:10px;">
               <button id="btnPickBg" class="btn" data-i18n="select_bg">選擇背景圖</button>
               <button id="btnClearBg" class="btn" disabled data-i18n="clear">清除</button>
-              <span id="bgName" class="muted mono" data-i18n="use_ori">(使用原圖）</span>
+              <span id="bgName" class="muted mono" data-i18n="use_ori">使用原圖</span>
             </div>
             <input id="bgInput" type="file" accept="image/*" hidden />
           </div>
 
-
           <div class="field">
-  <label data-i18n="size">尺寸</label>
+            <label data-i18n="size">尺寸</label>
+            <div class="inline wrap" style="gap:10px;">
+              <select id="sizePreset" style="min-width:220px;">
+                <option value="free" selected data-i18n="custom">自訂</option>
+                <option value="fb_1_91_1">FB 1.91:1（1200×630）</option>
+                <option value="ig_1_1">IG 1:1（1080×1080）</option>
+                <option value="ig_4_5">IG 4:5（1080×1350）</option>
+                <option value="ig_9_16">IG / Reels 9:16（1080×1920）</option>
+                <option value="ar_16_9">16:9（1920×1080）</option>
+                <option value="ar_4_3">4:3（1600×1200）</option>
+                <option value="ar_3_4">3:4（1200×1600）</option>
+              </select>
 
-  <!-- Preset -->
-  <div class="inline" style="gap:10px; flex-wrap:wrap;">
-    <select id="sizePreset" style="min-width:220px;">
-      <option value="free" selected data-i18n="custom">自訂</option>
-      <option value="fb_1_91_1">FB  1.91:1（1200×630）</option>
+              <label class="inline check-inline muted">
+                <input id="mirror" type="checkbox" />
+                <span data-i18n="horizontal">Mirror（左右鏡像）</span>
+              </label>
+            </div>
 
-      <option value="ig_1_1">IG 1:1（1080×1080）</option>
-      <option value="ig_4_5">IG 4:5（1080×1350）</option>
-      <option value="ig_9_16">IG / Reels 9:16（1080×1920）</option>
-
-      <option value="ar_16_9">16:9（1920×1080）</option>
-      <option value="ar_4_3">4:3（1600×1200）</option>
-      <option value="ar_3_4">3:4（1200×1600）</option>
-    </select>
-
-    <label class="inline muted" style="gap:8px; user-select:none;">
-      <input id="mirror" type="checkbox" />
-      <span data-i18n="horizontal">Mirror（左右鏡像）</span>
-    </label>
-  </div>
-
-  <!-- Manual size -->
-  <div class="inline" style="margin-top:10px;">
-    <input id="w" type="number" value="1920" min="1" />
-    <span class="muted">×</span>
-    <input id="h" type="number" value="1080" min="1" />
-  </div>
-</div>
+            <div class="inline" style="margin-top:10px;">
+              <input id="w" type="number" value="1920" min="1" />
+              <span class="muted">×</span>
+              <input id="h" type="number" value="1080" min="1" />
+            </div>
+          </div>
 
           <div class="field">
             <label>Blur</label>
@@ -137,6 +128,80 @@
             <div class="muted mono"><span id="satVal">0.75</span></div>
           </div>
 
+          <div class="section-divider"></div>
+
+          <div class="watermark-section">
+            <div class="watermark-heading">
+              <div>
+                <div class="watermark-title" data-i18n="watermark_title">水印</div>
+                <div class="watermark-sub" data-i18n="watermark_subtitle">上下線 + 中間文字，可拖曳整組位置</div>
+              </div>
+              <label class="switch-row">
+                <input id="watermarkEnabled" type="checkbox" />
+                <span data-i18n="watermark_enable">啟用</span>
+              </label>
+            </div>
+
+            <div id="watermarkControls" class="watermark-controls is-disabled">
+              <div class="field">
+                <label for="watermarkText" data-i18n="watermark_text">文字</label>
+                <input id="watermarkText" type="text" value="BLURPAD" maxlength="120" autocomplete="off" />
+              </div>
+
+              <div class="watermark-toggle-row">
+                <label class="check-card">
+                  <input id="watermarkTopLine" type="checkbox" checked />
+                  <span data-i18n="watermark_top_line">上線條</span>
+                </label>
+                <label class="check-card">
+                  <input id="watermarkBottomLine" type="checkbox" checked />
+                  <span data-i18n="watermark_bottom_line">下線條</span>
+                </label>
+              </div>
+
+              <div class="field watermark-color-row">
+                <label for="watermarkColor" data-i18n="watermark_color">顏色</label>
+                <input id="watermarkColor" type="color" value="#ffffff" />
+              </div>
+
+              <div class="field">
+                <div class="field-head">
+                  <label for="watermarkOpacity" data-i18n="watermark_opacity">透明度</label>
+                  <span id="watermarkOpacityVal" class="mono muted">80%</span>
+                </div>
+                <input id="watermarkOpacity" type="range" min="0" max="1" step="0.05" value="0.8" />
+              </div>
+
+              <div class="field">
+                <div class="field-head">
+                  <label for="watermarkScale" data-i18n="watermark_scale">整組大小</label>
+                  <span id="watermarkScaleVal" class="mono muted">100%</span>
+                </div>
+                <input id="watermarkScale" type="range" min="25" max="250" step="1" value="100" />
+              </div>
+
+              <div class="field">
+                <div class="field-head">
+                  <label for="watermarkX" data-i18n="watermark_x">水平位置</label>
+                  <span id="watermarkXVal" class="mono muted">50%</span>
+                </div>
+                <input id="watermarkX" type="range" min="0" max="100" step="0.1" value="50" />
+              </div>
+
+              <div class="field">
+                <div class="field-head">
+                  <label for="watermarkY" data-i18n="watermark_y">垂直位置</label>
+                  <span id="watermarkYVal" class="mono muted">50%</span>
+                </div>
+                <input id="watermarkY" type="range" min="0" max="100" step="0.1" value="50" />
+              </div>
+
+              <div class="watermark-hint" data-i18n="watermark_drag_hint">啟用後可直接拖曳預覽中的水印整組。</div>
+            </div>
+          </div>
+
+          <div class="section-divider"></div>
+
           <div class="field">
             <label data-i18n="output">輸出</label>
             <div class="inline">
@@ -151,7 +216,6 @@
         </div>
       </section>
 
-      <!-- 右：即時預覽 + 輸出這張 + 進度 -->
       <section class="card">
         <h3 data-i18n="preview_title">即時預覽</h3>
 
@@ -159,6 +223,9 @@
           <img id="previewImg" alt="preview" />
           <div id="previewEmpty" class="viewportEmpty" data-i18n="preview_empty">
             拖一張圖片到這裡預覽（也可以點一下選檔）
+          </div>
+          <div id="watermarkDragHandle" class="watermark-drag-handle" hidden>
+            <span data-i18n="watermark_drag">拖曳水印</span>
           </div>
         </div>
 
@@ -181,58 +248,38 @@
         </div>
 
         <div id="log" class="log mono"></div>
-
-        <!-- 隱藏的單張選檔：點預覽框會打開 -->
         <input id="imageInput" type="file" accept="image/*" hidden />
       </section>
     </main>
   </div>
 
-  <!-- Fixed Ad (collapsible) -->
-<div id="adDock" class="ad-dock" data-state="open" aria-label="Advertisement">
-  <div class="ad-panel" role="region" aria-label="Ad panel">
-    <div class="ad-badge">AD</div>
-
-    <!-- 這裡之後替換成廣告碼/iframe/ins -->
-    <div class="ad-slot">
-  <ins class="adsbygoogle"
-     style="display:block; width:100%; min-height:90px;"
-     data-ad-client="ca-pub-1653119848077016"
-     data-ad-slot="8466184852"
-     data-ad-format="auto"
-     data-full-width-responsive="true"></ins>
-
-</div>
-
-
-
-    <button id="adCollapse" class="ad-btn" aria-label="Collapse ad">✕</button>
+  <div id="adDock" class="ad-dock" data-state="open" aria-label="Advertisement">
+    <div class="ad-panel" role="region" aria-label="Ad panel">
+      <div class="ad-badge">AD</div>
+      <div class="ad-slot">
+        <ins class="adsbygoogle"
+           style="display:block; width:100%; min-height:90px;"
+           data-ad-client="ca-pub-1653119848077016"
+           data-ad-slot="8466184852"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      </div>
+      <button id="adCollapse" class="ad-btn" aria-label="Collapse ad">✕</button>
+    </div>
+    <button id="adPill" class="ad-pill" aria-label="Expand ad">AD</button>
   </div>
 
-  <button id="adPill" class="ad-pill" aria-label="Expand ad">
-    AD
-  </button>
-</div>
-
-<footer class="footer" style="margin-top:40px;text-align:center;font-size:12px;color:#999">
-  <a href="/about.html">About</a> ·
-  <a href="/privacy.html">Privacy Policy</a> ·
-  <a href="/terms.html">Terms</a>
-</footer>
-
-
+  <footer class="footer" style="margin-top:40px;text-align:center;font-size:12px;color:#999">
+    <a href="/about.html">About</a> ·
+    <a href="/privacy.html">Privacy Policy</a> ·
+    <a href="/terms.html">Terms</a>
+  </footer>
 
   <script>
-  (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
-
-  <!-- JSZip 用於批次 ZIP -->
+    (adsbygoogle = window.adsbygoogle || []).push({});
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-
   <script src="./i18n.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
-
-
-
