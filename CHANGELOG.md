@@ -1,5 +1,20 @@
 # BlurPad Development Log
 
+## v1.2.2 — 2026-09-11
+
+### Added
+- Added built-in QR center icon presets for Facebook, WhatsApp, Instagram, and LinkedIn.
+- Added a `None` preset to remove the center overlay immediately.
+- Added a `Custom` preset that opens the existing image upload flow.
+- Built-in icons reuse the same QR image renderer as uploaded images, so current size, X/Y position, center reset, white backing, preview, and PNG export behavior all remain consistent.
+- Added brand-colored preset buttons and responsive two-column layout on small phones.
+- Added Traditional Chinese and English labels for the built-in icon picker.
+
+### Implementation
+- Added `qr-social-icons.js` as a lightweight extension on top of the existing QR image/logo pipeline.
+- Preset icons are generated as local SVG image files and passed through the existing upload handler instead of introducing a second render path.
+- Added `qr-social-icons.js?v=1.2.2` to the page and bumped the `i18n.js` cache key to v1.2.2 so refreshed browsers receive the new UI.
+
 ## v1.2.1 — 2026-09-11
 
 ### Added
