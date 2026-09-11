@@ -33,6 +33,10 @@ const I18N = {
     output: "輸出",
     quality: "品質（JPG）",
 
+    tab_image: "圖片",
+    tab_watermark: "水印",
+    tab_qr: "QR Code",
+
     watermark_title: "水印",
     watermark_subtitle: "上下線 + 中間文字，可拖曳、縮放與旋轉整組",
     watermark_enable: "啟用",
@@ -47,6 +51,26 @@ const I18N = {
     watermark_y: "垂直位置",
     watermark_drag_hint: "啟用後可直接拖曳預覽中的水印整組，並可調整大小與旋轉角度。",
     watermark_drag: "拖曳水印",
+
+    qr_intro: "貼上網址即可自動產生 QR Code；也可切換為 Wi‑Fi QR。",
+    qr_mode_url: "網址",
+    qr_mode_wifi: "Wi‑Fi",
+    qr_url_label: "網址",
+    qr_url_hint: "可直接貼上網址；沒有 http/https 時會自動補上 https://。",
+    qr_wifi_ssid: "Wi‑Fi 名稱（SSID）",
+    qr_wifi_password: "密碼",
+    qr_wifi_security: "安全類型",
+    qr_wifi_wpa: "WPA / WPA2",
+    qr_wifi_open: "無密碼",
+    qr_wifi_hidden: "隱藏網路",
+    qr_wifi_hint: "掃描後可由支援的手機直接加入 Wi‑Fi。",
+    qr_wifi_need_ssid: "請輸入 Wi‑Fi 名稱（SSID）。",
+    qr_wifi_ready: "Wi‑Fi QR 已產生",
+    qr_empty: "貼上網址後，QR Code 會顯示在這裡。",
+    qr_download: "下載 PNG",
+    qr_clear: "清除",
+    qr_library_error: "QR Code 元件載入失敗，請重新整理頁面後再試。",
+    qr_download_error: "QR PNG 下載失敗，請再試一次。",
 
     preview_title: "即時預覽",
     preview_empty: "拖一張圖片到這裡預覽（也可以點一下選檔）",
@@ -100,6 +124,10 @@ const I18N = {
     output: "Output",
     quality: "Quality (JPG)",
 
+    tab_image: "Image",
+    tab_watermark: "Watermark",
+    tab_qr: "QR Code",
+
     watermark_title: "Watermark",
     watermark_subtitle: "Top/bottom lines with centered text; move, scale and rotate as one group",
     watermark_enable: "Enable",
@@ -114,6 +142,26 @@ const I18N = {
     watermark_y: "Vertical position",
     watermark_drag_hint: "When enabled, drag the watermark group in the preview and adjust its size or rotation angle.",
     watermark_drag: "Drag watermark",
+
+    qr_intro: "Paste a URL to generate a QR Code automatically, or switch to Wi‑Fi QR.",
+    qr_mode_url: "URL",
+    qr_mode_wifi: "Wi‑Fi",
+    qr_url_label: "URL",
+    qr_url_hint: "Paste a URL directly. If http/https is missing, https:// is added automatically.",
+    qr_wifi_ssid: "Wi‑Fi name (SSID)",
+    qr_wifi_password: "Password",
+    qr_wifi_security: "Security",
+    qr_wifi_wpa: "WPA / WPA2",
+    qr_wifi_open: "No password",
+    qr_wifi_hidden: "Hidden network",
+    qr_wifi_hint: "Supported phones can scan this QR Code to join the Wi‑Fi network.",
+    qr_wifi_need_ssid: "Enter the Wi‑Fi name (SSID).",
+    qr_wifi_ready: "Wi‑Fi QR ready",
+    qr_empty: "Paste a URL and the QR Code will appear here.",
+    qr_download: "Download PNG",
+    qr_clear: "Clear",
+    qr_library_error: "The QR Code component could not load. Refresh the page and try again.",
+    qr_download_error: "QR PNG download failed. Please try again.",
 
     preview_title: "Live Preview",
     preview_empty: "Drop an image here (or click to choose)",
@@ -175,9 +223,13 @@ function setLang(lang) {
 
 window.i18n = { t, setLang, applyI18n };
 
-// Rotation is kept as a small extension so the stable core app.js does not need to be rewritten.
+// Small extensions are loaded separately so the stable core app.js remains untouched.
 (() => {
-  const script = document.createElement("script");
-  script.src = "./watermark-rotation.js?v=1.1.1";
-  document.body.appendChild(script);
+  const rotation = document.createElement("script");
+  rotation.src = "./watermark-rotation.js?v=1.1.1";
+  document.body.appendChild(rotation);
+
+  const tools = document.createElement("script");
+  tools.src = "./tool-tabs-qr.js?v=1.2.0";
+  document.body.appendChild(tools);
 })();
