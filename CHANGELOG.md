@@ -1,5 +1,27 @@
 # BlurPad Development Log
 
+## v1.2.1 — 2026-09-11
+
+### Added
+- Added optional image / logo upload for URL and Wi-Fi QR Codes.
+- Uploaded images are centered by default and can be repositioned horizontally and vertically.
+- Added adjustable image size from 8% to 30% of the QR area.
+- Added a one-click Center Image control.
+- Added Remove Image control and uploaded filename display.
+- Added a white rounded backing behind the image to improve QR scan reliability.
+- QR preview and downloaded 1024×1024 PNG now use the same composition logic.
+- Added Traditional Chinese and English labels and help text for QR image controls.
+
+### Scan reliability
+- QR Codes continue to use high error correction (Level H).
+- Image size is capped at 30% to reduce the risk of covering too much QR data.
+- Position remains adjustable, while the image is kept inside the QR area.
+- A warning is shown that moving an image near finder patterns can reduce scan reliability.
+
+### Cache / delivery
+- Bumped `tool-tabs-qr.js` to v1.2.1.
+- Bumped the page `i18n.js` cache key to v1.2.1 so desktop and mobile browsers receive the new controls after refresh.
+
 ## v1.2.0 — 2026-09-11
 
 ### Added
