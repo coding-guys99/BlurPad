@@ -1,5 +1,27 @@
 # BlurPad Development Log
 
+## v1.2.0 — 2026-09-11
+
+### Added
+- Reorganized the main parameter area into three responsive tabs: Image, Watermark, and QR Code.
+- Added touch-friendly tab sizing and a sticky tab bar on mobile so long controls no longer need to be shown at the same time.
+- Added a standalone QR Code generator with URL mode as the default/primary workflow.
+- URL QR generation is automatic while typing or pasting; URLs without a protocol automatically receive `https://`.
+- Added Wi-Fi QR generation with SSID, password, WPA/WPA2, WEP, open-network, and hidden-network options.
+- Added high-resolution 1024×1024 PNG download with a white quiet-zone border for more reliable scanning.
+- Added Traditional Chinese and English labels/help text for the new tabs and QR workflow.
+
+### UX
+- Image controls stay together in the Image tab.
+- Watermark controls, including move/scale/rotation, stay together in the Watermark tab.
+- QR Code is isolated in its own tab to reduce desktop clutter and mobile scrolling.
+- QR URL mode is always selected first; Wi-Fi is a secondary mode.
+
+### Implementation
+- Added `tool-tabs-qr.js` as a non-invasive UI extension so the stable image renderer in `app.js` remains unchanged.
+- QR generation uses `qrcodejs` loaded only when needed.
+- Wi-Fi QR payloads escape reserved characters before encoding.
+
 ## v1.1.1 — 2026-09-07
 
 ### Added
