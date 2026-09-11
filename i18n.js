@@ -71,6 +71,17 @@ const I18N = {
     qr_clear: "清除",
     qr_library_error: "QR Code 元件載入失敗，請重新整理頁面後再試。",
     qr_download_error: "QR PNG 下載失敗，請再試一次。",
+    qr_logo_title: "中間圖片 / Logo",
+    qr_logo_subtitle: "預設置中，可調整大小與位置。",
+    qr_logo_upload: "上傳圖片",
+    qr_logo_clear: "移除圖片",
+    qr_logo_none: "尚未上傳圖片",
+    qr_logo_size: "圖片大小",
+    qr_logo_x: "水平位置",
+    qr_logo_y: "垂直位置",
+    qr_logo_center: "回到中間",
+    qr_logo_hint: "圖片後方會自動加入白底以提高掃描成功率；圖片過大或移到定位角附近仍可能影響掃描。",
+    qr_logo_error: "圖片讀取失敗，請換一張圖片。",
 
     preview_title: "即時預覽",
     preview_empty: "拖一張圖片到這裡預覽（也可以點一下選檔）",
@@ -162,6 +173,17 @@ const I18N = {
     qr_clear: "Clear",
     qr_library_error: "The QR Code component could not load. Refresh the page and try again.",
     qr_download_error: "QR PNG download failed. Please try again.",
+    qr_logo_title: "Center Image / Logo",
+    qr_logo_subtitle: "Centered by default, with adjustable size and position.",
+    qr_logo_upload: "Upload Image",
+    qr_logo_clear: "Remove Image",
+    qr_logo_none: "No image uploaded",
+    qr_logo_size: "Image Size",
+    qr_logo_x: "Horizontal Position",
+    qr_logo_y: "Vertical Position",
+    qr_logo_center: "Center Image",
+    qr_logo_hint: "A white backing is added automatically for scan reliability. Very large images or positions near QR finder patterns may still affect scanning.",
+    qr_logo_error: "The image could not be read. Please choose another image.",
 
     preview_title: "Live Preview",
     preview_empty: "Drop an image here (or click to choose)",
@@ -223,13 +245,12 @@ function setLang(lang) {
 
 window.i18n = { t, setLang, applyI18n };
 
-// Small extensions are loaded separately so the stable core app.js remains untouched.
 (() => {
   const rotation = document.createElement("script");
   rotation.src = "./watermark-rotation.js?v=1.1.1";
   document.body.appendChild(rotation);
 
   const tools = document.createElement("script");
-  tools.src = "./tool-tabs-qr.js?v=1.2.0";
+  tools.src = "./tool-tabs-qr.js?v=1.2.1";
   document.body.appendChild(tools);
 })();
