@@ -1,5 +1,16 @@
 # BlurPad Development Log
 
+## v1.2.3 — 2026-09-11
+
+### Changed
+- Changed the built-in Facebook, WhatsApp, Instagram, and LinkedIn QR center presets from brand colors to a monochrome black-and-white style.
+- Built-in social presets now render as black icons on the existing white QR backing plate for a cleaner, more consistent QR appearance.
+- Kept the existing size, X/Y position, center reset, preview, and PNG export behavior unchanged.
+- Updated the social icon picker hint to make the monochrome behavior clear.
+
+### Cache / delivery
+- Bumped `qr-social-icons.js` to v1.2.3 so refreshed desktop and mobile browsers receive the monochrome presets instead of cached colored icons.
+
 ## v1.2.2 — 2026-09-11
 
 ### Added
