@@ -212,23 +212,188 @@ function sanitizeName(s) {
   return String(s).replace(/[\\/:*?"<>|]/g, "_");
 }
 
-async function fileToImage(file) {
-  const url = URL.createObjectURL(file);
+const RAW_EXTENSIONS = new Set([
+  "dng", "cr2", "cr3", "nef", "arw", "raf", "rw2", "orf", "pef", "srw", "raw"
+]);
+let __dcrawLoadPromise = null;
+
+function getFileExtension(file) {
+  const name = String(file?.name || "");
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
+}
+
+function isRawFile(file) {
+  const ext = getFileExtension(file);
+  if (RAW_EXTENSIONS.has(ext)) return true;
+  const type = String(file?.type || "").toLowerCase();
+  return /(?:dng|camera-raw|x-adobe-dng|x-canon|x-nikon|x-sony|x-fuji)/.test(type);
+}
+
+async function ensureDcraw() {
+  if (typeof window.dcraw === "function") return window.dcraw;
+  if (__dcrawLoadPromise) return __dcrawLoadPromise;
+
+  __dcrawLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/dcraw@1.0.3/dist/dcraw.js";
+    script.async = true;
+    script.onload = () => {
+      if (typeof window.dcraw === "function") resolve(window.dcraw);
+      else reject(new Error("RAW decoder loaded but is unavailable."));
+    };
+    script.onerror = () => reject(new Error("RAW decoder could not be loaded. Check your network and retry."));
+    document.head.appendChild(script);
+  });
+
+  return __dcrawLoadPromise;
+}
+
+async function blobToImage(blob, label = "image") {
+  const url = URL.createObjectURL(blob);
   const img = new Image();
   img.decoding = "async";
   img.src = url;
 
-  if (img.decode) {
-    await img.decode().catch(() => {});
-  } else {
-    await new Promise((res, rej) => {
-      img.onload = () => res();
-      img.onerror = (e) => rej(e);
-    });
+  try {
+    if (img.decode) {
+      await img.decode();
+    } else {
+      await new Promise((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error(`Unable to decode ${label}.`));
+      });
+    }
+
+    const iw = Number(img.naturalWidth || img.width || 0);
+    const ih = Number(img.naturalHeight || img.height || 0);
+    if (!iw || !ih) throw new Error(`Unable to decode ${label}: invalid image dimensions.`);
+
+    img.__objectURL = url;
+    return img;
+  } catch (err) {
+    URL.revokeObjectURL(url);
+    throw err;
+  }
+}
+
+function ppmToCanvas(input, label = "RAW image") {
+  const bytes = input instanceof Uint8Array
+    ? input
+    : input instanceof ArrayBuffer
+      ? new Uint8Array(input)
+      : ArrayBuffer.isView(input)
+        ? new Uint8Array(input.buffer, input.byteOffset, input.byteLength)
+        : null;
+
+  if (!bytes || bytes.length < 16) throw new Error(`${label}: RAW decoder returned no pixel data.`);
+
+  let i = 0;
+  const isWs = (v) => v === 9 || v === 10 || v === 13 || v === 32;
+
+  function skipHeaderSpaceAndComments() {
+    while (i < bytes.length) {
+      while (i < bytes.length && isWs(bytes[i])) i++;
+      if (bytes[i] === 35) {
+        while (i < bytes.length && bytes[i] !== 10 && bytes[i] !== 13) i++;
+        continue;
+      }
+      break;
+    }
   }
 
-  img.__objectURL = url;
-  return img;
+  function token() {
+    skipHeaderSpaceAndComments();
+    const start = i;
+    while (i < bytes.length && !isWs(bytes[i]) && bytes[i] !== 35) i++;
+    if (start === i) return "";
+    let out = "";
+    for (let p = start; p < i; p++) out += String.fromCharCode(bytes[p]);
+    return out;
+  }
+
+  const magic = token();
+  const width = Number(token());
+  const height = Number(token());
+  const maxVal = Number(token());
+
+  if (magic !== "P6" || !width || !height || maxVal <= 0 || maxVal > 255) {
+    throw new Error(`${label}: unsupported RAW decoder output.`);
+  }
+
+  // P6 has one whitespace separator between maxVal and binary RGB pixels.
+  if (bytes[i] === 13 && bytes[i + 1] === 10) i += 2;
+  else if (i < bytes.length && isWs(bytes[i])) i++;
+
+  const needed = width * height * 3;
+  if (bytes.length - i < needed) {
+    throw new Error(`${label}: incomplete RAW pixel data.`);
+  }
+
+  const rgba = new Uint8ClampedArray(width * height * 4);
+  let src = i;
+  let dst = 0;
+  for (let px = 0; px < width * height; px++) {
+    rgba[dst++] = bytes[src++];
+    rgba[dst++] = bytes[src++];
+    rgba[dst++] = bytes[src++];
+    rgba[dst++] = 255;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error(`${label}: Canvas is unavailable.`);
+  ctx.putImageData(new ImageData(rgba, width, height), 0, 0);
+  canvas.__rawDecoded = true;
+  return canvas;
+}
+
+async function decodeRawFile(file) {
+  const dcraw = await ensureDcraw();
+  const rawBytes = new Uint8Array(await file.arrayBuffer());
+  let fullDecodeError = null;
+
+  try {
+    // Half-size demosaic keeps browser memory reasonable while still providing
+    // enough resolution for typical BlurPad web/social exports.
+    const ppm = dcraw(rawBytes, {
+      useCameraWhiteBalance: true,
+      setColorSpace: 1,
+      setHalfSizeMode: true,
+    });
+    return ppmToCanvas(ppm, file.name || "RAW image");
+  } catch (err) {
+    fullDecodeError = err;
+  }
+
+  // Some newer DNG compression variants are not handled by this lightweight
+  // decoder. In that case use the camera-generated embedded JPEG preview.
+  try {
+    const thumb = dcraw(rawBytes, { extractThumbnail: true });
+    const thumbBytes = thumb instanceof Uint8Array
+      ? thumb
+      : thumb instanceof ArrayBuffer
+        ? new Uint8Array(thumb)
+        : ArrayBuffer.isView(thumb)
+          ? new Uint8Array(thumb.buffer, thumb.byteOffset, thumb.byteLength)
+          : null;
+
+    if (thumbBytes && thumbBytes.length > 32) {
+      const img = await blobToImage(new Blob([thumbBytes], { type: "image/jpeg" }), `${file.name} embedded preview`);
+      img.__rawFallback = "embedded-preview";
+      return img;
+    }
+  } catch {}
+
+  const reason = String(fullDecodeError?.message || fullDecodeError || "unsupported DNG/RAW encoding");
+  throw new Error(`DNG/RAW decode failed for ${file.name}: ${reason}`);
+}
+
+async function fileToImage(file) {
+  if (isRawFile(file)) return decodeRawFile(file);
+  return blobToImage(file, file?.name || "image");
 }
 
 function withMirror(ctx, enabled, tw, drawFn) {
@@ -513,7 +678,7 @@ function wireDrop(el, onDropFile) {
 }
 
 function isImageFile(file) {
-  return /^image\//.test(file.type) || /\.(jpg|jpeg|png|webp)$/i.test(file.name);
+  return /^image\//.test(file.type) || /\.(jpg|jpeg|png|webp|dng|cr2|cr3|nef|arw|raf|rw2|orf|pef|srw|raw)$/i.test(file.name);
 }
 
 function setBatch(files, folderLabel = "") {
@@ -726,6 +891,8 @@ btnRunBatch.addEventListener("click", async () => {
   let doneN = 0, okN = 0, failN = 0;
   setProgress({ total: batchFiles.length, done: 0, ok: 0, fail: 0, current: "" });
   logLine(`Batch start: ${batchFiles.length} files`);
+  const rawCount = batchFiles.filter(isRawFile).length;
+  if (rawCount) logLine(`RAW/DNG: ${rawCount} file(s) — decoding locally in the browser.`);
 
   for (const file of batchFiles) {
     try {
