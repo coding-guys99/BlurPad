@@ -1,5 +1,23 @@
 # BlurPad Development Log
 
+## v1.2.4 — 2026-10-08
+
+### Fixed
+- Fixed DNG / camera RAW batch exports producing black images.
+- RAW files are now detected explicitly instead of being passed to the browser's normal image decoder.
+- Removed the previous silent image-decode failure path that could continue rendering with zero-sized image data.
+- Invalid or unsupported image decodes now fail clearly instead of generating a black JPG/PNG.
+
+### RAW / DNG support
+- Added local in-browser RAW decoding for DNG and common camera RAW extensions.
+- RAW decoding uses camera white balance and a half-size demosaic to reduce browser memory pressure during batch processing.
+- If full RAW decoding is unavailable for a particular DNG encoding, BlurPad falls back to the file's embedded JPEG preview when available.
+- RAW files remain local to the browser; the selected photo data is not uploaded to BlurPad for decoding.
+- Batch logs now show how many RAW/DNG files were detected.
+
+### Delivery
+- Bumped `app.js` cache key to v1.2.4 so refreshed desktop/mobile browsers receive the DNG fix.
+
 ## v1.2.3 — 2026-09-11
 
 ### Changed
